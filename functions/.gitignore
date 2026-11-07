@@ -6,3 +6,8 @@ vision-testset/results-*.json
 .env.nova-ffc
 .env.local
 .secret.local
+
+# Firebase service-account key and locally kept photos (never commit)
+firebase-key.local.json
+*service-account*.json
+local-photos/

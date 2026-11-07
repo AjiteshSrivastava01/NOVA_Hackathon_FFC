@@ -47,7 +47,9 @@
         "*.log",
         "vision.local.env",
         ".env.local",
-        ".secret.local"
+        ".secret.local",
+        "firebase-key.local.json",
+        "local-photos"
       ]
     }
   ],

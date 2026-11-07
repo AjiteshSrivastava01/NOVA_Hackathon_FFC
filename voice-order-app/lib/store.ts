@@ -2,10 +2,11 @@ import type { Order, OrderItem } from "./types";
 
 // Order storage.
 //   Local dev (default):  in memory, lost on restart.
-//   Firebase (nova-ffc):  Firestore collection "voice_orders". Used automatically when
-//                         deployed on Firebase App Hosting, or locally with
-//                         USE_FIRESTORE=true in .env.local (after
-//                         `gcloud auth application-default login`).
+//   Firebase (nova-ffc):  Firestore collection "voice_orders". Locally (free Spark plan),
+//                         put these in .env.local:
+//                           USE_FIRESTORE=true
+//                           GOOGLE_APPLICATION_CREDENTIALS=../functions/firebase-key.local.json
+//                         Also used automatically on Firebase App Hosting (Blaze plan).
 
 const COLLECTION = "voice_orders";
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "nova-ffc";

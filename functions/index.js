@@ -1,4 +1,6 @@
-// Firebase Cloud Function entry point (project: nova-ffc). Firebase Hosting
+// Firebase Cloud Function entry point (project: nova-ffc). BLAZE PLAN ONLY:
+// on the free Spark plan, run functions/server.js locally instead (see README).
+// Firebase Hosting
 // rewrites /api/** and /photos/** to this function (see ../firebase.json).
 //
 // Data lives in Firestore, photos in Cloud Storage (src/store/firestore.js).

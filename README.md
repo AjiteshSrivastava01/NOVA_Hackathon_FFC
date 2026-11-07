@@ -25,70 +25,67 @@ npm start
 
 Then open http://localhost:8000 for the dashboard and http://localhost:8000/vision-lab/ for Vision Lab. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
 
-## Firebase (project `nova-ffc`)
+## Firebase (project `nova-ffc`, free Spark plan)
 
-Everything is wired to the Firebase project **`nova-ffc`** (`.firebaserc`).
+Photos are processed **on your laptop**. The local server sends each one to OpenRouter and gets back the order string. **Only the results go to Firestore**: order strings, items, statuses and cubbies. Photos never leave the laptop.
 
-| Part | Where it runs | Data |
-|---|---|---|
-| Dashboard `frontend/` and Vision Lab `frontend/vision-lab/` | Firebase Hosting → https://nova-ffc.web.app and `/vision-lab/` | none of its own |
-| Backend API `functions/` | Cloud Function `api` (Hosting forwards `/api/**` and `/photos/**`) | Firestore: `orders`, `inspections`, `cubbies`, `events`, `vision_results`; Storage: `photos/` |
-| Voice app `voice-order-app/` | Firebase App Hosting (`apphosting.yaml`) | Firestore: `voice_orders` |
-| Display board `display-board/` | Firebase App Hosting (`apphosting.yaml`) | uses the backend at nova-ffc.web.app |
+That way the team shares one database without the paid Blaze plan.
 
-Locally, everything runs **in memory** by default, so you don't need any Firebase setup to develop.
+```
+phone/laptop camera ──► local server (functions/) ──► OpenRouter (vision)
+                              │
+                              └──► Firestore (nova-ffc): orders, inspections, cubbies,
+                                   events, vision_results  ◄── teammates' local servers
+                                                            ◄── voice app (voice_orders)
+```
 
-### One-time setup (console: https://console.firebase.google.com/project/nova-ffc)
+### One-time setup
 
-1. Switch to the **Blaze** plan (bottom left, **Upgrade**). Cloud Functions, Storage and App Hosting need it; the free allowance covers a hackathon. Set a budget alert.
-2. **Build → Firestore Database → Create database.** Choose production mode and a location such as `us-central1` (it can't be changed later).
-3. **Build → Storage → Get started.** Choose production mode and the same location.
-4. Install the CLI:
-   ```bash
-   npm install -g firebase-tools
+1. **Create the database:** in the Firebase console, go to **Build → Firestore Database → Create database**. Choose production mode and a location near you, such as `us-central1`. This is free on Spark.
+2. **Download a service-account key:** go to ⚙️ **Project settings → Service accounts → Generate new private key**. Save the file as **`functions/firebase-key.local.json`**.
+   - Git ignores it.
+   - **Never commit it or post it.** It gives full access to the database.
+   - Share it with teammates privately, or have each of them generate their own.
+3. **Put your local settings in `functions/vision.local.env`** (git-ignored):
    ```
-5. Sign in:
-   ```bash
-   firebase login
+   OPENROUTER_API_KEY=sk-or-...
+   FFC_STORE=firestore
    ```
-6. Store the OpenRouter key as a secret. It asks for the value, so the key never goes in a file:
+4. **Run the server:** from the `functions` folder, run `npm start`. The startup message should say `data: Firestore (nova-ffc), photos kept on this computer`.
+
+Leave out `FFC_STORE=firestore` to work offline, with data in memory.
+
+**The voice app** can write to the same database. Add these lines to `voice-order-app/.env.local`:
+
+```
+OPENROUTER_API_KEY=sk-or-...
+USE_FIRESTORE=true
+GOOGLE_APPLICATION_CREDENTIALS=../functions/firebase-key.local.json
+```
+
+Its orders go to the `voice_orders` collection.
+
+**Free-plan limits:** 50,000 reads and 20,000 writes per day.
+- The local server keeps a live copy of the data, so the dashboards' polling doesn't use up reads. Reads are only counted when data changes.
+- You can check usage in the console under **Firestore → Usage**.
+
+### Later, on the Blaze plan (optional)
+
+`firebase deploy` can host everything online, with the API as a Cloud Function (`functions/index.js`) and photos in Cloud Storage. The voice app and display board can then run on App Hosting (`apphosting.yaml`).
+
+To do that, you'd need to:
+1. Upgrade to Blaze.
+2. Create Storage.
+3. Store the key as a secret:
    ```bash
    firebase functions:secrets:set OPENROUTER_API_KEY
    ```
-7. Optional: create `functions/.env.nova-ffc` (git-ignored) for the deployed function's settings:
+4. Deploy:
+   ```bash
+   firebase deploy
    ```
-   OPENROUTER_VISION_MODEL=google/gemini-3.8-flash
-   LAB_PASSWORD=pick-something
-   ```
-   `LAB_PASSWORD` stops strangers from using Vision Lab on the public site and spending your credit.
 
-### Deploy the dashboard, backend and Vision Lab
-
-From the repo root:
-
-```bash
-firebase deploy
-```
-
-This deploys Hosting, the `api` function, and the Firestore and Storage rules (which deny direct browser access, so only the function can read or write).
-
-### Deploy the voice app and display board (App Hosting)
-
-For each app, in the console go to **Build → App Hosting → Get started**, connect this GitHub repo, and set the **root directory** to `voice-order-app` or `display-board`. Pushing to `main` then redeploys automatically.
-
-The voice app also needs access to the key:
-
-```bash
-firebase apphosting:secrets:grantaccess OPENROUTER_API_KEY --backend voice-order-app
-```
-
-### Test against Firebase locally (optional)
-
-```bash
-firebase emulators:start
-```
-
-This runs Hosting, Functions, Firestore and Storage locally, with a UI at http://localhost:4000. Functions read secrets from `functions/.secret.local` (git-ignored) when emulated.
+None of this is needed for the free setup above.
 
 ## Integration contract
 
