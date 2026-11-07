@@ -214,11 +214,11 @@ function createApp(store) {
   app.post("/api/orders/demo", route(async (req, res) => {
     const lines = [{
       menu_id: "burger", qty: pick([1, 1, 2]),
-      modifiers: pick([{}, { lettuce: "no" }, { onion: "add" }, { cheese: "no", pickles: "add" }]),
+      modifiers: pick([{}, {}, { lettuce: "no" }, { tomato: "no" }]),
     }];
     if (Math.random() < 0.7) lines.push({ menu_id: "fries", qty: 1 });
-    if (Math.random() < 0.4) lines.push({ menu_id: pick(["chicken_sandwich", "salad"]), qty: 1 });
-    if (Math.random() < 0.5) lines.push({ menu_id: "soda", qty: 1 });
+    if (Math.random() < 0.4) lines.push({ menu_id: pick(["wings", "pizza"]), qty: 1 });
+    if (Math.random() < 0.5) lines.push({ menu_id: pick(["soda", "water"]), qty: 1 });
     res.status(201);
     return createOrder({
       items: lines, source: "demo",
@@ -403,9 +403,16 @@ function createApp(store) {
       return { o, r, overlap, score: r.verdict === matching.PASS ? 0 : r.reasons.length };
     });
     const candidates = b.order_id != null ? scored : scored.filter((x) => x.overlap);
+    // Every waiting order it was compared with (shown on the input page).
+    const compared = scored.map((x) => ({
+      order_id: x.o.id, ordered: orderText(x.o),
+      verdict: x.overlap || b.order_id != null ? x.r.verdict : "different dishes",
+      differences: x.r.verdict === matching.PASS ? [] : x.r.reasons,
+    }));
     if (!candidates.length) {
-      await log(null, "no_match", `Camera saw "${seen}" but no open order has that.`, "warning");
-      return { outcome: "no_match", message: `No open order matches "${seen}".`, seen };
+      const why = open.length ? `no waiting order has that (checked ${open.map((o) => "#" + o.id).join(", ")})` : "there are no waiting orders";
+      await log(null, "no_match", `Camera saw "${seen}" but ${why}.`, "warning");
+      return { outcome: "no_match", message: `Camera saw "${seen}" but ${why}.`, seen, compared };
     }
 
     const photoPath = await savePhoto(photo);
@@ -427,17 +434,30 @@ function createApp(store) {
         outcome: "checked_off", order_id: o.id, seen, cubby,
         message: `✓ Order #${o.id} is correct` + (cubby ? ` → cubby ${cubby.label}` : " (no free cubby)"),
         warning: mixup ? `Possible mix-up with older Order #${mixup.o.id}` : null,
+        compared,
       };
     }
 
-    const best = candidates.sort((a, b2) => a.score - b2.score || a.o.id - b2.o.id)[0];
+    // No exact match: flag the closest order, but only if ONE order is clearly closest.
+    // If several are equally close we can't tell which ticket the cook meant, so warn instead.
+    const ranked = [...candidates].sort((a, b2) => a.score - b2.score || a.o.id - b2.o.id);
+    const tied = ranked.filter((x) => x.score === ranked[0].score);
+    if (tied.length > 1) {
+      const list = tied.map((x) => `#${x.o.id} (${x.r.reasons.join("; ")})`).join(", ");
+      await log(null, "no_match",
+        `Camera saw "${seen}". It doesn't match any waiting order exactly, and ${tied.map((x) => "#" + x.o.id).join(", ")} are equally close: ${list}.`,
+        "warning");
+      return { outcome: "no_match", seen, compared,
+        message: `Camera saw "${seen}". No exact match; equally close: ${tied.map((x) => "#" + x.o.id).join(", ")}.` };
+    }
+    const best = ranked[0];
     const insp = await recordInspection(best.o.id, observations, "camera", photoPath);
     await log(best.o.id, "check_failed",
       `Order #${best.o.id} is wrong: ${insp.reasons.join("; ")}. Ordered: ${orderText(best.o)}. Camera saw: ${seen}.`,
       "error");
     return {
       outcome: "flagged", order_id: best.o.id, seen,
-      reasons: insp.reasons, swap_suggestion: insp.swap_suggestion,
+      reasons: insp.reasons, swap_suggestion: insp.swap_suggestion, compared,
       message: `✕ Order #${best.o.id} doesn't match: ${insp.reasons.join("; ")}`,
     };
   }));

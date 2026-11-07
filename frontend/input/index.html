@@ -165,7 +165,8 @@ $("#photo").onchange = async (e) => {
   try {
     const r = await post("/api/check-meal", { photo: await downscale(file) });
     const level = { checked_off: "success", flagged: "error" }[r.outcome] || "warning";
-    note(level, r.message, [r.seen && `Camera saw: ${r.seen}`, r.warning].filter(Boolean).join(" · "));
+    const checked = (r.compared || []).map((c) => `#${c.order_id} ${c.verdict === "pass" ? "✓" : c.verdict === "different dishes" ? "–" : "✕"}`).join("  ");
+    note(level, r.message, [r.seen && `Camera saw: ${r.seen}`, r.warning, checked && `Checked: ${checked}`].filter(Boolean).join(" · "));
   } catch (err) { note("error", "Couldn't check the meal", err.message); }
   finally { busy(cam, false, "📷 Check meal"); }
 };

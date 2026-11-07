@@ -8,7 +8,7 @@ Put 20–40 photos in this folder, then describe each one in `labels.json` with 
     "photo": "01-burger-correct.jpg",
     "ticket": [{"menu_id": "burger", "qty": 1, "modifiers": {"lettuce": "no"}}],
     "truth": [{"menu_id": "burger", "components": {"bun": "present", "patty": "present", "lettuce": "absent",
-               "tomato": "present", "cheese": "present", "onion": "absent", "pickles": "absent"}}]
+               "tomato": "present"}}]
   }
 ]
 ```

@@ -51,7 +51,7 @@ function seed(): MockState {
         id: 19,
         status: "in_cubby",
         items: [
-          { menu_id: "burger", qty: 1, mods: { onion: true } },
+          { menu_id: "burger", qty: 1, mods: { tomato: false } },
           { menu_id: "fries", qty: 1 },
         ],
         cubby: 2,
@@ -63,8 +63,9 @@ function seed(): MockState {
         id: 20,
         status: "pending",
         items: [
-          { menu_id: "chicken_sandwich", qty: 1 },
-          { menu_id: "salad", qty: 1, mods: { onion: false } },
+          { menu_id: "wings", qty: 1 },
+          { menu_id: "pizza", qty: 1 },
+          { menu_id: "water", qty: 1 },
         ],
         cubby: null,
         flag_reason: null,

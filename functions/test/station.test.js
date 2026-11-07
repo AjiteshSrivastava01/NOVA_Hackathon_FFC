@@ -14,7 +14,7 @@ const call = (m, p, body) => realFetch(base + p, { method: m, headers: body ? { 
 const PHOTO = "data:image/jpeg;base64," + Buffer.from("fakejpeg").toString("base64");
 const WAV = "data:audio/wav;base64," + Buffer.alloc(4000).toString("base64");
 
-const BURGER = { bun: "present", patty: "present", lettuce: "present", tomato: "present", cheese: "present", onion: "absent", pickles: "absent" };
+const BURGER = { bun: "present", patty: "present", lettuce: "present", tomato: "present" };
 let seesOnPlate = [];     // what the fake vision model reports
 let heardOrder = null;    // what the fake voice model reports
 function fakeModels() {
@@ -40,8 +40,9 @@ test("voice audio -> order in menu format (not saved until confirmed)", async ()
   const r = await call("POST", "/api/voice/understand", { audio_base64: WAV });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.customer_name, undefined);
-  assert.deepEqual(r.data.items[0], { menu_id: "burger", qty: 2, modifiers: { lettuce: "no", onion: "add" } });
-  assert.equal(r.data.summary, "2× Burger (no lettuce, add onion), Fries");
+  // "add onion" isn't on the menu -> ignored
+  assert.deepEqual(r.data.items[0], { menu_id: "burger", qty: 2, modifiers: { lettuce: "no" } });
+  assert.equal(r.data.summary, "2× Burger (no lettuce), Fries");
   assert.equal((await call("GET", "/api/orders")).data.length, 0);
 });
 
@@ -115,4 +116,46 @@ test("a flagged order can be re-checked after the kitchen fixes it", async () =>
   const r = (await call("POST", "/api/check-meal", { photo: PHOTO })).data;
   assert.equal(r.outcome, "checked_off");
   assert.equal(r.order_id, o.id);
+});
+
+// ---------- new menu + matching against ALL waiting orders ----------
+test("photo is checked against every waiting order (matches #3, not #1)", async () => {
+  const o1 = await order("", [{ menu_id: "burger", modifiers: { lettuce: "no" } }]);
+  await order("", [{ menu_id: "pizza" }]);
+  const o3 = await order("", [{ menu_id: "burger" }, { menu_id: "wings" }, { menu_id: "water" }]);
+  seesOnPlate = [["burger", BURGER], ["wings", { wings: "present" }], ["water", { water: "present" }]];
+  const r = (await call("POST", "/api/check-meal", { photo: PHOTO })).data;
+  assert.equal(r.outcome, "checked_off");
+  assert.equal(r.order_id, o3.id);
+  assert.deepEqual(r.compared.map((c) => c.order_id), [o1.id, o1.id + 1, o3.id]);
+  assert.equal((await call("GET", `/api/orders/${o1.id}`)).data.status, "pending");
+});
+
+test("extra toppings on the burger (cheese, onion) are ignored by the camera", async () => {
+  const o = await order("", [{ menu_id: "burger", modifiers: { tomato: "no" } }]);
+  // the model mentions toppings that aren't on the menu
+  seesOnPlate = [["burger", { ...BURGER, tomato: "absent", cheese: "present", onion: "present" }]];
+  const r = (await call("POST", "/api/check-meal", { photo: PHOTO })).data;
+  assert.equal(r.outcome, "checked_off");
+  assert.equal(r.order_id, o.id);
+  assert.equal(r.seen, "Burger (no tomato)");
+});
+
+test("no exact match and two orders equally close -> warning, nobody flagged", async () => {
+  const a = await order("", [{ menu_id: "burger", modifiers: { lettuce: "no" } }]);
+  const b = await order("", [{ menu_id: "burger", modifiers: { tomato: "no" } }]);
+  seesOnPlate = [["burger", BURGER]]; // both are off by exactly one topping
+  const r = (await call("POST", "/api/check-meal", { photo: PHOTO })).data;
+  assert.equal(r.outcome, "no_match");
+  assert.match(r.message, new RegExp(`#${a.id}, #${b.id}`));
+  assert.equal((await call("GET", `/api/orders/${a.id}`)).data.status, "pending");
+  assert.equal((await call("GET", `/api/orders/${b.id}`)).data.status, "pending");
+});
+
+test("soda vs water are different dishes", async () => {
+  const o = await order("", [{ menu_id: "soda" }]);
+  seesOnPlate = [["water", { water: "present" }]];
+  const r = (await call("POST", "/api/check-meal", { photo: PHOTO })).data;
+  assert.equal(r.outcome, "no_match");
+  assert.equal((await call("GET", `/api/orders/${o.id}`)).data.status, "pending");
 });

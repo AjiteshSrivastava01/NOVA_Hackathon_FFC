@@ -6,16 +6,16 @@ const { toOrderItems, formatSummary, parseSummary, compareOrders } = require("..
 
 const burger = (over = {}) => ({
   menu_id: "burger",
-  components: { bun: "present", patty: "present", lettuce: "present", tomato: "present", cheese: "present", onion: "absent", pickles: "absent", ...over },
+  components: { bun: "present", patty: "present", lettuce: "present", tomato: "present", ...over },
 });
 
 test("observations -> voice-style items and summary", () => {
-  const items = toOrderItems({ items: [burger({ lettuce: "absent", onion: "present" }), burger({ lettuce: "absent", onion: "present" }), { menu_id: "fries", components: { fries: "present" } }] });
+  const items = toOrderItems({ items: [burger({ lettuce: "absent", tomato: "absent" }), burger({ lettuce: "absent", tomato: "absent" }), { menu_id: "fries", components: { fries: "present" } }] });
   assert.deepEqual(items, [
-    { name: "Burger", quantity: 2, notes: "no lettuce, add onion" },
+    { name: "Burger", quantity: 2, notes: "no lettuce, no tomato" },
     { name: "Fries", quantity: 1, notes: undefined },
   ]);
-  assert.equal(formatSummary(items), "2× Burger (no lettuce, add onion), Fries");
+  assert.equal(formatSummary(items), "2× Burger (no lettuce, no tomato), Fries");
 });
 
 test("retake -> empty", () => {
@@ -30,8 +30,11 @@ test("parseSummary reads the voice app's string", () => {
 });
 
 test("compareOrders tolerates wording differences", () => {
-  const seen = toOrderItems({ items: [burger({ lettuce: "absent", onion: "present" }), burger({ lettuce: "absent", onion: "present" })] });
-  assert.equal(compareOrders(parseSummary("2× Burgers (without lettuce and with onions)"), seen).match, true);
+  const seen = toOrderItems({ items: [burger({ lettuce: "absent", tomato: "absent" }), burger({ lettuce: "absent", tomato: "absent" })] });
+  assert.equal(compareOrders(parseSummary("2× Burgers (without lettuce and hold the tomatoes)"), seen).match, true);
+  // extras that aren't on the menu (cheese, onion) are ignored, like the camera does
+  assert.equal(compareOrders(parseSummary("2× Burger (no lettuce, no tomato, extra cheese, add onion)"), seen).match, true);
+  assert.equal(compareOrders(parseSummary("Chicken wings, bottled water"), [{ name: "Wings", quantity: 1 }, { name: "Water", quantity: 1 }]).match, true);
   assert.equal(compareOrders([{ name: "Coke", quantity: 1 }], [{ name: "Soda", quantity: 1 }]).match, true);
 });
 

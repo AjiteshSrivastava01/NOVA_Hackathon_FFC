@@ -28,12 +28,12 @@ test("no API key -> null (dashboard falls back to samples)", async () => {
 
 test("parses present/absent answers and drops invented dishes", async () => {
   process.env.OPENROUTER_API_KEY = "test";
-  const comps = { bun: "present", patty: "present", lettuce: "present", tomato: "present", cheese: "present", onion: "absent", pickles: "absent" };
+  const comps = { bun: "present", patty: "present", lettuce: "present", tomato: "present" };
   fakeModel("```json\n" + JSON.stringify({
     photo_quality: "good", confidence: 0.9, notes: "",
     items: [
       { menu_id: "burger", components: Object.entries(comps).map(([component, state]) => ({ component, state })) },
-      { menu_id: "pizza", components: [] },
+      { menu_id: "sushi", components: [] },
     ],
   }) + "\n```");
   const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);

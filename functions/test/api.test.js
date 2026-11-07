@@ -31,7 +31,7 @@ async function make(name, items) {
 function burgerObs(lettuce = "present") {
   return {
     menu_id: "burger",
-    components: { bun: "present", patty: "present", lettuce, tomato: "present", cheese: "present", onion: "absent", pickles: "absent" },
+    components: { bun: "present", patty: "present", lettuce, tomato: "present" },
   };
 }
 
@@ -89,7 +89,7 @@ test("retakes keep history; swap is only a suggestion until staff confirm", asyn
 
 test("rejects bad menu ids and modifiers", async () => {
   assert.equal((await post("/api/orders", { customer_name: "X", items: [{ menu_id: "burger", modifiers: { patty: "no" } }] })).status, 422);
-  assert.equal((await post("/api/orders", { customer_name: "X", items: [{ menu_id: "pizza" }] })).status, 422);
+  assert.equal((await post("/api/orders", { customer_name: "X", items: [{ menu_id: "sushi" }] })).status, 422);
   assert.equal((await post("/api/orders", { items: [] })).status, 422);
 });
 

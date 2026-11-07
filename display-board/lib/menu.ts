@@ -19,32 +19,13 @@ export const MENU: MenuItem[] = [
     mods: [
       { key: "lettuce", label: "lettuce", default: true },
       { key: "tomato", label: "tomato", default: true },
-      { key: "cheese", label: "cheese", default: true },
-      { key: "onion", label: "onion", default: false },
-      { key: "pickles", label: "pickles", default: false },
-    ],
-  },
-  {
-    id: "chicken_sandwich",
-    name: "Chicken Sandwich",
-    emoji: "🥪",
-    mods: [
-      { key: "lettuce", label: "lettuce", default: true },
-      { key: "pickles", label: "pickles", default: true },
-      { key: "tomato", label: "tomato", default: false },
     ],
   },
   { id: "fries", name: "Fries", emoji: "🍟" },
-  {
-    id: "salad",
-    name: "Side Salad",
-    emoji: "🥗",
-    mods: [
-      { key: "tomato", label: "tomato", default: true },
-      { key: "onion", label: "onion", default: true },
-    ],
-  },
+  { id: "wings", name: "Wings", emoji: "🍗" },
   { id: "soda", name: "Soda", emoji: "🥤" },
+  { id: "pizza", name: "Pizza", emoji: "🍕" },
+  { id: "water", name: "Water", emoji: "💧" },
 ];
 
 const BY_ID = new Map(MENU.map((m) => [m.id, m]));
@@ -61,7 +42,7 @@ export function modLabel(menuId: string, key: string): string {
   return BY_ID.get(menuId)?.mods?.find((m) => m.key === key)?.label ?? key;
 }
 
-/** ["no lettuce", "with onion"] for display. */
+/** ["no lettuce", "no tomato"] for display. */
 export function describeMods(item: OrderItem): string[] {
   if (!item.mods) return [];
   return Object.entries(item.mods).map(([key, want]) =>

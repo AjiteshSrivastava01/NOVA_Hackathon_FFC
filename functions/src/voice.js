@@ -1,7 +1,7 @@
 // VOICE: speech (or typed text) -> an order in the menu format the backend uses.
 //
 //   understandOrder({ audio: Buffer, audioFormat: "wav", text?: string })
-//     -> { transcript, items: [{ menu_id, qty, modifiers: { lettuce: "no", onion: "add" } }] }
+//     -> { transcript, items: [{ menu_id, qty, modifiers: { lettuce: "no", tomato: "no" } }] }
 //
 // One call to an audio-capable model on OpenRouter does both steps (speech -> text -> order),
 // restricted to menu.js so it can't invent dishes. Without an API key, typed text still works
@@ -54,9 +54,10 @@ ${menuText()}
 Rules:
 - "transcript": exactly what was said (for audio), or the text you were given.
 - One entry per distinct dish + changes. "two burgers no lettuce" = one entry with qty 2.
-- "remove": ingredient ids the customer does NOT want ("no lettuce", "hold the cheese", "without onion").
-- "add": optional ingredient ids the customer wants added ("add onion", "extra pickles", "with tomato").
-- Map synonyms to the menu: cheeseburger/hamburger -> burger, chips -> fries, coke/pop/drink -> soda, salad -> salad.
+- "remove": standard ingredient ids the customer does NOT want ("no lettuce", "hold the tomato").
+- "add": always [] (the menu has no add-ons). Ignore requests for extras that aren't on the menu.
+- Map synonyms to the menu: cheeseburger/hamburger -> burger, chips -> fries, chicken wings -> wings,
+  coke/pop/soft drink -> soda, bottle of water -> water, a slice/pizza -> pizza.
 - Never invent dishes or ingredients. Ignore anything not on the menu.
 Orders are numbered automatically, so ignore any names or table numbers.
 Return JSON only: {"transcript":"...","items":[{"menu_id":"burger","qty":2,"remove":["lettuce"],"add":[]}]}`;
@@ -108,8 +109,8 @@ async function understandOrder({ audio, audioFormat = "wav", text, model } = {})
 const NUMBERS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 const ALIASES = {
   burger: "burger", burgers: "burger", hamburger: "burger", cheeseburger: "burger",
-  "chicken sandwich": "chicken_sandwich", "chicken sandwiches": "chicken_sandwich",
-  fries: "fries", fry: "fries", chips: "fries", salad: "salad", salads: "salad",
+  fries: "fries", fry: "fries", chips: "fries", wings: "wings", wing: "wings", "chicken wings": "wings",
+  pizza: "pizza", pizzas: "pizza", slice: "pizza", water: "water", waters: "water",
   soda: "soda", sodas: "soda", coke: "soda", drink: "soda", drinks: "soda",
 };
 const ALIAS_KEYS = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
