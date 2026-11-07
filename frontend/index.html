@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FFC Kitchen</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>FFC Kitchen <span class="sub">order → inspect → cubby → pickup</span></h1>
+    <div class="header-actions">
+      <label class="toggle"><input type="checkbox" id="tts-on" checked> Voice announcements</label>
+      <button class="ghost" id="btn-reset">Reset demo</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ORDER QUEUE -->
+    <section class="panel" id="queue-panel">
+      <div class="panel-head">
+        <h2>Tickets</h2>
+        <label class="toggle small"><input type="checkbox" id="show-done"> show picked up</label>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="btn-demo">+ Create demo order</button>
+        <button id="btn-new">+ Manual order</button>
+        <button id="btn-voice">🎙 Voice order</button>
+      </div>
+      <ul id="orders" class="orders"></ul>
+    </section>
+
+    <!-- SELECTED ORDER -->
+    <section class="panel" id="detail-panel">
+      <div id="detail-empty" class="empty">Select a ticket to inspect it.<br><small>The ticket is chosen <em>before</em> the meal photo, so the meal is checked against the order the cook intended.</small></div>
+      <div id="detail" hidden>
+        <div class="panel-head">
+          <h2 id="d-title"></h2>
+          <span id="d-status" class="status"></span>
+        </div>
+        <ul id="d-items" class="ticket"></ul>
+
+        <h3>1 · Inspect the meal</h3>
+        <div class="btn-row">
+          <button class="primary" data-sample="correct">Submit sample inspection ✓</button>
+          <button data-sample="mistake">Sample: cook mistake</button>
+          <button data-sample="hidden">Sample: lettuce hidden</button>
+          <button id="btn-photo">📷 Photo inspection</button>
+        </div>
+
+        <h3>2 · Cubby</h3>
+        <div class="btn-row">
+          <button class="primary" id="btn-assign">Assign cubby</button>
+          <label class="toggle small" id="override-wrap"><input type="checkbox" id="override"> staff override</label>
+          <input id="override-note" placeholder="override reason" hidden>
+          <button class="primary" id="btn-pickup">Confirm pickup</button>
+        </div>
+
+        <h3>Inspection history <small>(retakes are kept)</small></h3>
+        <ol id="d-inspections" class="inspections"></ol>
+      </div>
+    </section>
+
+    <!-- CUBBIES + LOG -->
+    <section class="panel" id="side-panel">
+      <h2>Cubby wall</h2>
+      <div id="cubbies" class="cubbies"></div>
+      <h2>Activity</h2>
+      <ul id="events" class="events"></ul>
+      <details class="lab">
+        <summary>Test lab (mic · camera · speech)</summary>
+        <div class="btn-row">
+          <button id="lab-mic">🎙 Record 3s</button>
+          <button id="lab-cam">📷 Test camera</button>
+          <button id="lab-tts">🔊 Test speech</button>
+        </div>
+        <audio id="lab-audio" controls hidden></audio>
+        <pre id="lab-out"></pre>
+      </details>
+    </section>
+  </main>
+
+  <!-- Manual order dialog -->
+  <dialog id="dlg-order">
+    <form method="dialog" id="order-form">
+      <h2 id="order-form-title">New order</h2>
+      <label>Customer name <input name="customer" required maxlength="60"></label>
+      <div id="order-lines"></div>
+      <button type="button" id="add-line">+ Add item</button>
+      <div class="btn-row end">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button class="primary" value="ok" id="order-save">Save order</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Voice order dialog -->
+  <dialog id="dlg-voice">
+    <form method="dialog">
+      <h2>Voice order</h2>
+      <p class="hint">Record, or type what the customer said. The parsed order opens for staff confirmation before it is saved.</p>
+      <div class="btn-row">
+        <button type="button" id="voice-rec">● Record</button>
+        <span id="voice-state" class="hint"></span>
+      </div>
+      <textarea id="voice-text" rows="3" placeholder="e.g. Two burgers no lettuce and fries for Sam"></textarea>
+      <div class="btn-row end">
+        <button value="cancel">Cancel</button>
+        <button type="button" class="primary" id="voice-parse">Parse → confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Camera dialog -->
+  <dialog id="dlg-camera">
+    <form method="dialog">
+      <h2 id="cam-title">Photo inspection</h2>
+      <video id="cam-video" autoplay playsinline muted></video>
+      <img id="cam-still" hidden alt="captured meal">
+      <p class="hint">Until the vision model is wired up, the photo is stored with a sample result:
+        <select id="cam-fallback">
+          <option value="correct">correct</option>
+          <option value="mistake">cook mistake</option>
+          <option value="hidden">lettuce hidden</option>
+        </select>
+      </p>
+      <input type="file" id="cam-file" accept="image/*" capture="environment">
+      <div class="btn-row end">
+        <button value="cancel">Cancel</button>
+        <button type="button" id="cam-snap">Capture</button>
+        <button type="button" class="primary" id="cam-send" disabled>Inspect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Cubby release simulation -->
+  <div id="release" class="release" hidden>
+    <div class="release-card">
+      <div class="cubby-3d">
+        <div class="cubby-inside">
+          <svg viewBox="0 0 120 120" class="bag" aria-hidden="true">
+            <path d="M25 40 h70 l-6 70 h-58 z" fill="#fee1c7" stroke="#3c1518" stroke-width="3"/>
+            <path d="M42 40 v-10 a18 18 0 0 1 36 0 v10" fill="none" stroke="#3c1518" stroke-width="4"/>
+            <text x="60" y="85" text-anchor="middle" font-size="18" font-weight="700" fill="#69140e" id="bag-label">#</text>
+          </svg>
+        </div>
+        <div class="cubby-door"><span id="door-label">C1</span></div>
+      </div>
+      <p id="release-text" class="release-text"></p>
+      <button class="primary" id="release-close">Done</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
