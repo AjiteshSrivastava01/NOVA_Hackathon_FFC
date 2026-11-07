@@ -1,0 +1,9 @@
+rules_version = '2';
+// Photos are served through the Cloud Function at /photos/*, not directly from the bucket.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

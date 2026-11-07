@@ -3,11 +3,24 @@
     "public": "frontend",
     "ignore": ["firebase.json", "**/.*"],
     "rewrites": [
-      { "source": "/api/**", "run": { "serviceId": "ffc-kitchen", "region": "us-central1" } },
-      { "source": "/photos/**", "run": { "serviceId": "ffc-kitchen", "region": "us-central1" } }
+      { "source": "/api/**", "function": { "functionId": "api", "region": "us-central1" } },
+      { "source": "/photos/**", "function": { "functionId": "api", "region": "us-central1" } }
     ],
     "headers": [
       { "source": "**/*.@(js|css|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
     ]
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": ["node_modules", ".git", "test", "server.js", "*.log"]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

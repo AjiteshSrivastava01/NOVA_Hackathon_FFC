@@ -1,56 +1,53 @@
 # NOVA_Hackathon_FFC
 Repo for the 2026 NOVA Hackathon for the Flushi_Fan_Club Team.
 
-A shared kitchen dashboard and backend. The full flow works today with manual inputs:
+A shared kitchen dashboard and backend in JavaScript, hosted on Firebase. The full flow already works with manual inputs:
 
 **create ticket → select ticket → inspect meal → assign cubby → confirm pickup**
 
-Voice will replace manual ticket entry, and vision will replace the sample inspection. Each one plugs into the backend through a single file.
+Later, voice replaces manual ticket entry and vision replaces the sample inspection.
 
-## Run it
+## Run locally
+
+Needs Node.js 22.
 
 ```bash
-pip install -r requirements-dev.txt
+cd functions
 ```
 
 ```bash
-uvicorn backend.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open http://localhost:8000. Interactive API docs are at http://localhost:8000/docs.
-Run the tests with `python -m pytest -q`. To reset all data, use **Reset demo** in the UI or delete `data/ffc.db`.
-
-> Camera and microphone access in the browser require `localhost` or HTTPS. To test from a phone, use a tunnel such as `ngrok http 8000`.
-
-## Deploy (Firebase Hosting + Cloud Run)
-
-Firebase Hosting serves `frontend/`. Requests to `/api/**` and `/photos/**` are forwarded to the Python backend on Cloud Run (see `firebase.json`). The Firebase project must be on the **Blaze** (pay-as-you-go) plan; hackathon usage stays within the free tier.
-
-One-time setup:
-
-```bash
-npm install -g firebase-tools
+npm install
 ```
 
 ```bash
-firebase login
+npm start
 ```
+
+Then open http://localhost:8000. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
+
+## Deploy to Firebase
+
+Setup:
+
+1. Create a project at https://console.firebase.google.com and switch it to the **Blaze** plan. Cloud Functions require Blaze; hackathon usage stays within the free tier.
+2. In the console, turn on **Firestore Database** and **Storage**.
+3. Replace `YOUR-FIREBASE-PROJECT-ID` in `.firebaserc` with your project ID.
+4. Install the Firebase CLI:
+   ```bash
+   npm install -g firebase-tools
+   ```
+5. Sign in:
+   ```bash
+   firebase login
+   ```
+
+Deploy from the repo root:
 
 ```bash
-gcloud auth login
+firebase deploy
 ```
 
-Put your project ID in `.firebaserc`. Then deploy the backend first, followed by Hosting:
-
-```bash
-gcloud run deploy ffc-kitchen --source . --region us-central1 --allow-unauthenticated --min-instances 1 --max-instances 1 --project YOUR-FIREBASE-PROJECT-ID
-```
-
-```bash
-firebase deploy --only hosting
-```
-
-> **Data is not permanent on Cloud Run.** SQLite and photos live inside the single running instance. `--max-instances 1` keeps every screen on the same data, and `--min-instances 1` stops the instance from shutting down (and wiping data) when idle. Redeploying the backend still resets the data. After the hackathon, run `gcloud run services update ffc-kitchen --min-instances 0 --region us-central1` to stop paying for idle time. Moving storage to Firestore and Cloud Storage would make the data permanent.
+Hosting serves `frontend/`. Requests to `/api/**` and `/photos/**` go to the `api` Cloud Function (`functions/index.js`). That function stores data in Firestore and photos in Cloud Storage, so they survive redeploys.
 
 ## Integration contract
 
@@ -58,16 +55,16 @@ firebase deploy --only hosting
 |---|---|
 | `POST /api/orders` | Save a confirmed order |
 | `GET /api/orders` | Populate the dashboard (`?include_done=true` includes picked-up orders) |
-| `POST /api/orders/{id}/inspect` | Inspect a photo against the **selected** order |
-| `POST /api/orders/{id}/assign-cubby` | Reserve a free cubby (requires a verified order, or `{"override": true, "staff_note": "..."}`) |
-| `POST /api/orders/{id}/pickup` | Confirm pickup and release the cubby |
+| `POST /api/orders/:id/inspect` | Inspect a photo against the **selected** order |
+| `POST /api/orders/:id/assign-cubby` | Reserve a free cubby (verified order, or `{"override": true, "staff_note": "..."}`) |
+| `POST /api/orders/:id/pickup` | Confirm pickup and release the cubby |
 
-Helpers: `GET /api/menu`, `GET /api/orders/{id}`, `POST /api/orders/demo`,
-`POST /api/orders/{id}/inspect/sample?mode=correct|mistake|hidden`,
-`POST /api/inspections/{id}/reassign`, `GET /api/cubbies`, `GET /api/events`,
+Other routes: `GET /api/menu`, `GET /api/orders/:id`, `POST /api/orders/demo`,
+`POST /api/orders/:id/inspect/sample?mode=correct|mistake|hidden`,
+`POST /api/inspections/:id/reassign`, `GET /api/cubbies`, `GET /api/events`,
 `POST /api/voice/parse`, `POST /api/voice/transcribe`, `POST /api/reset`.
 
-### Order shape: stable IDs and quantities
+**Order** (stable IDs from `functions/src/menu.js`; quantity is a separate field from the modifiers):
 
 ```json
 {"customer_name": "Sam",
@@ -75,47 +72,34 @@ Helpers: `GET /api/menu`, `GET /api/orders/{id}`, `POST /api/orders/demo`,
            {"menu_id": "fries",  "qty": 1, "modifiers": {}}]}
 ```
 
-Menu IDs and component IDs are defined in `backend/menu.py`. Do not rename an existing ID; add a new one instead.
-A modifier is either `"no"` (remove a default component) or `"add"` (add an optional one).
-
-### Observation shape: what vision returns
-
-Vision reports only what it sees. `backend/matching.py` decides the result.
+**Inspect** request body:
 
 ```json
-{"items": [{"menu_id": "burger",
-            "components": {"bun": "present", "lettuce": "unknown", "cheese": "absent"}}],
- "notes": "lettuce may be under the patty"}
+{"photo_base64": "data:image/jpeg;base64,...", "observations": {...}}
 ```
 
-- Include one entry per physical unit, so two burgers means two entries.
-- Each component is `present`, `absent`, or `unknown`. If lettuce might be hidden, report `unknown`, not `absent`. A component left out of the list counts as `unknown`.
-- The backend returns one of three verdicts:
-  - `pass`: the order is verified and can go to a cubby.
-  - `fail`: the meal contradicts the ticket.
-  - `needs_review`: something could not be confirmed. Staff can retake the photo or override.
+**Observations** (vision reports what it sees; `matching.js` decides the verdict):
 
-Send the inspection as JSON (`{"observations": {...}, "photo_base64": "..."}`) or as multipart (`photo` file plus an `observations` JSON string).
+```json
+{"items": [{"menu_id": "burger", "components": {"lettuce": "unknown", "cheese": "present"}}]}
+```
 
-## Design decisions
-
-- **Ticket first, photo second.** The meal is compared against the ticket the cook intended to make. It is not matched across all tickets.
-- **Swaps are suggestions only.** If a failed meal matches another open ticket, the inspection shows *"appears to match Order N — possible swap."* Nothing moves until staff click **Confirm**. That creates a new, linked inspection on the other order and keeps the original.
-- **Inspections are records.** Each retake adds a row, and earlier photos and explanations stay in the history.
-- **Cubbies are simulated.** Assigning a cubby plays a door-opening animation and announces it with browser text-to-speech, for example *"Order 3 for Isla is ready in cubby 1."* Confirming pickup records the delivery and frees the cubby.
+- Include one entry per physical item.
+- Each component is `present`, `absent` or `unknown`. If an ingredient might be hidden, report `unknown`.
+- The verdict is `pass`, `fail` or `needs_review`.
+- Every retake creates a new inspection record; earlier ones are kept.
+- When an inspection suggests a swap to another order, nothing moves until staff confirm it.
+- Cubbies are simulated: assigning one plays a door animation and a text-to-speech announcement.
 
 ## Where each team plugs in
 
-| Team | File | What to implement |
-|---|---|---|
-| Vision | `backend/vision.py` | `analyze(photo_bytes, order) -> observations` (currently returns `None`) |
-| Voice | `backend/voice.py` | `transcribe(audio, content_type) -> str`; replace the keyword `parse_order` with an LLM, keeping the same output shape |
-| Logic | `backend/matching.py` | Verdict rules and swap suggestions |
-| UI | `frontend/` | Plain HTML, CSS, and JS, with no build step |
-
-Until vision is wired up, **📷 Photo inspection** stores the real photo together with a sample result, so the camera path can be tested end to end.
-The **Test lab** panel (right column) checks the microphone, camera, and speech output on any device.
+| Team | File |
+|---|---|
+| Vision | `functions/src/vision.js` → `analyze(photo, contentType, order)` |
+| Voice | `functions/src/voice.js` → `transcribe(audio)`, `parseOrder(text)` |
+| Logic | `functions/src/matching.js` |
+| UI | `frontend/` (plain HTML/CSS/JS, no build step) |
 
 ## Palette
 
-Rich Mahogany `#3c1518` · Dark Garnet `#69140e` · Soft Apricot `#fee1c7` · Vibrant Coral `#fa7e61` · Wild Strawberry `#f44174`
+`#3c1518` Rich Mahogany · `#69140e` Dark Garnet · `#fee1c7` Soft Apricot · `#fa7e61` Vibrant Coral · `#f44174` Wild Strawberry

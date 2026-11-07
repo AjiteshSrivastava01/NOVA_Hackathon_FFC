@@ -243,10 +243,14 @@ async function recordAudio(ms) {
   stream.getTracks().forEach((t) => t.stop());
   return new Blob(chunks, { type: rec.mimeType || "audio/webm" });
 }
+const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = reject;
+  r.readAsDataURL(blob);
+});
 async function uploadAudio(blob) {
-  const fd = new FormData();
-  fd.append("audio", blob, "clip.webm");
-  return api("/api/voice/transcribe", { method: "POST", body: fd });
+  return api("/api/voice/transcribe", { json: { audio_base64: await blobToDataUrl(blob) } });
 }
 
 $("#btn-voice").onclick = () => { $("#voice-text").value = ""; $("#voice-state").textContent = ""; $("#dlg-voice").showModal(); };
@@ -303,10 +307,9 @@ $("#cam-snap").onclick = () => {
 };
 $("#cam-file").onchange = (e) => e.target.files[0] && showStill(e.target.files[0]);
 $("#cam-send").onclick = () => run(async () => {
-  const fd = new FormData();
-  fd.append("photo", camBlob, "meal.jpg");
-  fd.append("fallback_sample", $("#cam-fallback").value);
-  const i = await api(`/api/orders/${state.selectedId}/inspect`, { method: "POST", body: fd });
+  const i = await api(`/api/orders/${state.selectedId}/inspect`, {
+    json: { photo_base64: await blobToDataUrl(camBlob), fallback_sample: $("#cam-fallback").value },
+  });
   $("#dlg-camera").close();
   await refresh();
   toast(`Inspection ${i.verdict.replace("_", " ")}`, i.verdict === "pass");
