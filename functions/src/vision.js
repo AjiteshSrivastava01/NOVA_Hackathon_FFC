@@ -6,11 +6,15 @@
 //   2. The model returns JSON in the observation format (see matching.js).
 //   3. matching.js (plain code) decides pass / fail / needs_review.
 //
-// Config (environment variables):
+// Config (environment variables, or put them in functions/vision.local.env,
+// which is git-ignored by functions/.gitignore):
 //   OPENROUTER_API_KEY       required; without it analyze() returns null and the
 //                            dashboard falls back to sample results
 //   OPENROUTER_VISION_MODEL  model id copied from openrouter.ai/models (image input)
 //   VISION_MIN_CONFIDENCE    below this the photo is flagged "please retake" (default 0.6)
+//
+// Bad photo / low confidence / model error -> every component comes back
+// "unknown", so the existing matching logic returns needs_review (retake).
 //
 // Reference photos: functions/vision-refs/<menu_id>/<caption>.jpg
 //   e.g. vision-refs/burger/no lettuce, with cheese.jpg
@@ -20,6 +24,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { MENU, expectedComponents } = require("./menu");
+
+// Local secrets file (never committed). Real environment variables win.
+const LOCAL_ENV = path.join(__dirname, "..", "vision.local.env");
+if (fs.existsSync(LOCAL_ENV)) process.loadEnvFile(LOCAL_ENV);
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const REFS_DIR = path.join(__dirname, "..", "vision-refs");
@@ -209,19 +217,45 @@ function normalize(raw) {
 }
 
 /**
+ * A "please retake" result. Every component of every expected dish is
+ * "unknown", so matching.js returns needs_review without any changes there.
+ * (These are NOT detections; retake: true marks them as "couldn't see".)
+ */
+function retakeObservations(order, reason, extra = {}) {
+  const items = [];
+  for (const line of order.items) {
+    for (let i = 0; i < (line.qty || 1); i++) {
+      items.push({
+        menu_id: line.menu_id,
+        components: Object.fromEntries(Object.keys(MENU[line.menu_id].components).map((c) => [c, "unknown"])),
+      });
+    }
+  }
+  return { items, confidence: 0, photo_quality: "bad", retake: true, retake_reason: reason,
+    notes: `Please retake the photo: ${reason}`, ...extra };
+}
+
+/**
  * Called by the API. Returns observations, or null if vision isn't configured
  * (the dashboard then uses sample results).
+ * Options: model (override), throwOnError (used by the eval script).
  */
-async function analyze(photoBuffer, contentType, order, { model } = {}) {
+async function analyze(photoBuffer, contentType, order, { model, throwOnError = false } = {}) {
   if (!process.env.OPENROUTER_API_KEY) return null;
   const useModel = model || process.env.OPENROUTER_VISION_MODEL || DEFAULT_MODEL;
   const photo = `data:${contentType};base64,${photoBuffer.toString("base64")}`;
-  const { text, latencyMs, cost } = await callModel(buildMessages(photo, order), useModel);
-  const obs = normalize(parseJson(text));
-  obs.model = useModel;
-  obs.latency_ms = latencyMs;
-  obs.cost_usd = cost;
-  return obs;
+  let result;
+  try {
+    const { text, latencyMs, cost } = await callModel(buildMessages(photo, order), useModel);
+    result = { obs: normalize(parseJson(text)), latencyMs, cost };
+  } catch (e) {
+    if (throwOnError) throw e;
+    console.error("vision failed:", e);
+    return retakeObservations(order, `vision model error (${e.message})`, { model: useModel });
+  }
+  const meta = { model: useModel, latency_ms: result.latencyMs, cost_usd: result.cost };
+  if (result.obs.retake) return retakeObservations(order, result.obs.retake_reason, { ...meta, raw: result.obs });
+  return { ...result.obs, ...meta };
 }
 
 module.exports = { analyze, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT };

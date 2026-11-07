@@ -17,8 +17,14 @@ Put 20–40 photos in this folder, then describe each one in `labels.json` with 
 - Add a few **bad photos** (blurry, dark, half out of frame) with `"truth": "retake"`.
 - Add a few where lettuce is **hidden** under the bun. Mark it `"unknown"` in the truth.
 
-Put your key in `functions/.env.local` (git-ignored) as `OPENROUTER_API_KEY=sk-or-...`, then run:
+Put your key in `functions/vision.local.env` (git-ignored), on one line:
+
+```
+OPENROUTER_API_KEY=sk-or-...
+```
+
+Then, from the `functions` folder:
 
 ```bash
-npm run eval -- model/one model/two
+node scripts/eval-vision.js model/one model/two
 ```

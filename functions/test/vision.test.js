@@ -22,6 +22,7 @@ function fakeModel(reply, { failStructured = false } = {}) {
 }
 
 test("no API key -> null (dashboard falls back to samples)", async () => {
+  delete process.env.OPENROUTER_API_KEY; // in case vision.local.env set it
   assert.equal(await vision.analyze(Buffer.from("x"), "image/jpeg", order), null);
 });
 
@@ -43,14 +44,23 @@ test("parses model JSON, fills missing components as unknown, drops invented dis
   assert.equal(evaluate(order.items, obs).verdict, "fail");
 });
 
-test("low confidence or bad photo -> retake (needs_review)", async () => {
+test("low confidence or bad photo -> all unknown -> needs_review (retake)", async () => {
   process.env.OPENROUTER_API_KEY = "test";
   fakeModel(JSON.stringify({ photo_quality: "bad", confidence: 0.3, notes: "blurry", items: [] }));
   const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);
   assert.equal(obs.retake, true);
-  const r = evaluate(order.items, obs);
-  assert.equal(r.verdict, "needs_review");
-  assert.match(r.reasons[0], /retake/i);
+  assert.ok(Object.values(obs.items[0].components).every((v) => v === "unknown"));
+  assert.equal(evaluate(order.items, obs).verdict, "needs_review");
+});
+
+test("model error -> retake instead of crashing the request", async () => {
+  process.env.OPENROUTER_API_KEY = "test";
+  global.fetch = async () => { throw new Error("network down"); };
+  const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);
+  assert.equal(obs.retake, true);
+  assert.match(obs.retake_reason, /network down/);
+  assert.equal(evaluate(order.items, obs).verdict, "needs_review");
+  await assert.rejects(vision.analyze(Buffer.from("x"), "image/jpeg", order, { throwOnError: true }));
 });
 
 test("falls back to prompt-only JSON when a model rejects structured output", async () => {

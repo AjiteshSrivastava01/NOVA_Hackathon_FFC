@@ -217,12 +217,7 @@ function createApp(store) {
     if (DONE.includes(order.status)) throw new HttpError(409, `Order ${orderId} is already ${order.status}`);
     if (!observations) {
       if (!photo) throw new HttpError(422, "Send a photo, observations, or both");
-      try {
-        observations = await vision.analyze(photo.buffer, photo.contentType, order);
-      } catch (e) {
-        console.error("vision failed:", e);
-        throw new HttpError(502, `Vision model failed: ${e.message}. Retake, or use a sample inspection.`);
-      }
+      observations = await vision.analyze(photo.buffer, photo.contentType, order);
       if (!observations && ["correct", "mistake", "hidden"].includes(body.fallback_sample)) {
         observations = sampleObservations(order, body.fallback_sample);
         source = "sample+photo";

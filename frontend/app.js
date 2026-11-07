@@ -305,16 +305,6 @@ const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
   r.onerror = reject;
   r.readAsDataURL(blob);
 });
-// Phone photos are 3-12 MP; vision models don't need that. Shrink to <=1280px JPEG
-// (faster upload, cheaper model call, fits request limits).
-async function downscale(blob, max = 1280) {
-  const img = await createImageBitmap(blob);
-  const scale = Math.min(1, max / Math.max(img.width, img.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", 0.85);
-}
 async function uploadAudio(blob) {
   return api("/api/voice/transcribe", { json: { audio_base64: await blobToDataUrl(blob) } });
 }
@@ -374,7 +364,7 @@ $("#cam-snap").onclick = () => {
 $("#cam-file").onchange = (e) => e.target.files[0] && showStill(e.target.files[0]);
 $("#cam-send").onclick = () => run(async () => {
   const i = await api(`/api/orders/${state.selectedId}/inspect`, {
-    json: { photo_base64: await downscale(camBlob), fallback_sample: $("#cam-fallback").value },
+    json: { photo_base64: await blobToDataUrl(camBlob), fallback_sample: $("#cam-fallback").value },
   });
   $("#dlg-camera").close();
   await refresh();
