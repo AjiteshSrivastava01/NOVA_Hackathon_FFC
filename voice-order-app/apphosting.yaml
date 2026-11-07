@@ -1,0 +1,18 @@
+# Firebase App Hosting config (project nova-ffc).
+# Create the backend once: Firebase console → Build → App Hosting → Get started,
+# connect this GitHub repo, root directory: voice-order-app
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+env:
+  # Same secret the Cloud Function uses. Give this backend access once:
+  #   firebase apphosting:secrets:grantaccess OPENROUTER_API_KEY --backend voice-order-app
+  - variable: OPENROUTER_API_KEY
+    secret: OPENROUTER_API_KEY
+  # Orders go to Firestore (collection "voice_orders") instead of memory.
+  - variable: USE_FIRESTORE
+    value: "true"
+    availability: [RUNTIME]
+  - variable: FIREBASE_PROJECT_ID
+    value: nova-ffc
+    availability: [RUNTIME]

@@ -13,6 +13,7 @@ const { MENU, expectedComponents } = require("./menu");
 const matching = require("./matching");
 const vision = require("./vision");
 const voice = require("./voice");
+const { parseSummary, compareOrders } = require("./vision-string");
 
 const CUBBY_COUNT = +(process.env.FFC_CUBBIES || 8);
 const DONE = ["in_cubby", "picked_up"];
@@ -322,6 +323,64 @@ function createApp(store) {
       note: transcript ? null : "Speech-to-text not wired yet (functions/src/voice.js). Audio was received OK.",
     };
   }));
+
+  // ---------- vision: photo -> order string (same format as the voice app) ----------
+  // Saved to the "vision_results" collection (Firestore when deployed, memory locally);
+  // photos go through store.savePhoto (Cloud Storage when deployed).
+  const LAB_PASSWORD = process.env.LAB_PASSWORD || "";
+  function checkLabPassword(req) {
+    if (!LAB_PASSWORD) return;
+    const given = Buffer.from(String(req.get("x-lab-password") || ""));
+    const want = Buffer.from(LAB_PASSWORD);
+    if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) {
+      throw new HttpError(401, "Wrong or missing lab password");
+    }
+  }
+  const asItems = (v) => (typeof v === "string" ? parseSummary(v) : Array.isArray(v) ? v : []);
+
+  app.get("/api/vision/config", route(async () => ({
+    model: process.env.OPENROUTER_VISION_MODEL || vision.DEFAULT_MODEL,
+    key_set: !!process.env.OPENROUTER_API_KEY,
+    password_required: !!LAB_PASSWORD,
+    storage: store.kind,
+  })));
+
+  // Body: { photo: "data:image/jpeg;base64,..." (or photo_base64), model?, order_id? }
+  // -> { ok, summary: "2× Burger (no lettuce), Fries", items: [{name, quantity, notes}], retake_reason, ... }
+  app.post("/api/vision/describe", route(async (req) => {
+    checkLabPassword(req);
+    const body = req.body || {};
+    const raw = body.photo || body.photo_base64;
+    if (!raw) throw new HttpError(422, "Send a photo as a data URL (data:image/jpeg;base64,...)");
+    const photo = decodeBase64(raw);
+    const model = body.model ? String(body.model).trim() : undefined;
+    if (model && !/^[\w.-]+\/[\w.:-]+$/.test(model)) throw new HttpError(422, "Model id looks wrong (expected provider/model)");
+    const result = await vision.describePhoto(photo.buffer, photo.contentType, { model });
+    if (!result) throw new HttpError(501, "Vision isn't configured: OPENROUTER_API_KEY is not set.");
+    const photo_url = await savePhoto(photo);
+    const orderId = Number.isInteger(Number(body.order_id)) && body.order_id != null ? Number(body.order_id) : null;
+    const doc = await store.tx(async (t) => {
+      const id = await t.nextId("vision_results");
+      const d = {
+        id, created_at: now(), summary: result.summary, items: result.items, ok: result.ok,
+        retake_reason: result.retake_reason, model: result.model, latency_ms: result.latency_ms,
+        cost_usd: result.cost_usd, photo_url, order_id: orderId,
+        observations: result.observations.items || [],
+      };
+      t.set("vision_results", id, d);
+      return d;
+    });
+    return { ...doc, observations: result.observations };
+  }));
+
+  // Body: { ordered: <voice summary string or items>, seen: <string or items> }
+  app.post("/api/vision/compare", route(async (req) => {
+    const b = req.body || {};
+    return compareOrders(asItems(b.ordered), asItems(b.seen));
+  }));
+
+  app.get("/api/vision/results", route(async (req) =>
+    store.list("vision_results", { orderBy: "id", desc: true, limit: Math.min(+req.query.limit || 30, 100) })));
 
   // ---------- photos ----------
   app.get("/photos/:name", route(async (req, res) => {

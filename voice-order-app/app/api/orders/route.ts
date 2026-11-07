@@ -4,6 +4,6 @@ import { listOpen, serveOrder } from "@/lib/store";
 // so the list is always fresh.
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { action?: string; id?: string };
-  if (body.action === "serve" && body.id) serveOrder(body.id);
-  return Response.json({ orders: listOpen() });
+  if (body.action === "serve" && body.id) await serveOrder(body.id);
+  return Response.json({ orders: await listOpen() });
 }
