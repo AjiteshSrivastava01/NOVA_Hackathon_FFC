@@ -343,6 +343,7 @@ function createApp(store) {
     key_set: !!process.env.OPENROUTER_API_KEY,
     password_required: !!LAB_PASSWORD,
     storage: store.kind,
+    photos: store.kind === "firestore" ? store.photos : "memory", // "local" = photos never leave this computer
   })));
 
   // Body: { photo: "data:image/jpeg;base64,..." (or photo_base64), model?, order_id? }

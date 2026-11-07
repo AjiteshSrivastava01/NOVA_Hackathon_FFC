@@ -1,4 +1,4 @@
-# Firebase App Hosting config (project nova-ffc).
+# Firebase App Hosting config (project nova-ffc). Needs the Blaze plan; on the free plan run this app locally instead.
 # Create the backend once: Firebase console → Build → App Hosting → Get started,
 # connect this GitHub repo, root directory: voice-order-app
 runConfig:

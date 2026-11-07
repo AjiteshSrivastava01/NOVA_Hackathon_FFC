@@ -4,3 +4,7 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 .DS_Store
+
+# Firebase service-account keys (never commit)
+firebase-key*.json
+*service-account*.json

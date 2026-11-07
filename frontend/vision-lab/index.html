@@ -227,9 +227,11 @@ async function loadHistory() {
 (async () => {
   const cfg = await (await fetch("/api/vision/config")).json();
   $("#hdr").innerHTML = `<span>model <code>${esc(cfg.model)}</code></span><span>key ${cfg.key_set ? "✓" : "<b>MISSING</b>"}</span><span>storage <code>${esc(cfg.storage)}</code></span>`;
-  $("#storage-note").textContent = cfg.storage === "firestore"
-    ? "Saved to Firestore (collection vision_results), photos to Cloud Storage."
-    : "Local run: results are kept in memory and disappear when the server restarts. Deployed, they go to Firestore.";
+  $("#storage-note").textContent = cfg.storage !== "firestore"
+    ? "Results are kept in memory on this computer (they reset on restart). Set FFC_STORE=firestore to share them via Firestore."
+    : cfg.photos === "local"
+      ? "The photo is processed on this computer and stays here. Only the result (string + items) is saved to Firestore → vision_results."
+      : "Results are saved to Firestore (vision_results); photos to Cloud Storage.";
   $("#model").value = store.get("lab-model") || cfg.model;
   $("#pwrow").hidden = !cfg.password_required;
   $("#pw").value = store.get("lab-pw") || "";
