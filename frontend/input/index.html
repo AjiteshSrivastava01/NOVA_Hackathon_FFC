@@ -38,6 +38,21 @@
   .log li.warning { border-left: 10px solid var(--coral); }
   .log li small { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
   .hint { color: var(--muted); font-size: .85rem; text-align: center; }
+  .upload { align-self: center; margin-top: -6px; color: var(--ink); font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .camview { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; align-items: center; justify-content: center; }
+  .camview video, .camview img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .cam-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px; background: linear-gradient(rgba(0,0,0,.6), transparent); }
+  .cam-hint { color: #fff; font-weight: 600; font-size: .9rem; text-align: center; flex: 1; text-shadow: 0 1px 3px #000; }
+  .cam-btn { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,.45); color: #fff; font-size: 1.3rem; cursor: pointer; }
+  .cam-bottom { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; gap: 12px;
+    padding: 18px 16px max(22px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+  .cam-bottom .small { flex: 1; max-width: 240px; padding: 14px; font-size: 1.05rem; }
+  .shutter { width: 78px; height: 78px; border-radius: 50%; border: 5px solid #fff; background: var(--strawberry); cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(0,0,0,.35); }
+  .shutter:active { transform: scale(.92); }
+  .flash { animation: flash .25s; }
+  @keyframes flash { from { filter: brightness(3); } }
   .spin { width: 22px; height: 22px; border: 4px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -55,11 +70,27 @@
     <div class="row"><button class="small primary" id="c-ok" type="button">✓ Add to dashboard</button><button class="small" id="c-no" type="button">✕ Cancel</button></div>
   </div>
 
-  <label class="big camera" id="cam">📷 Check meal<input type="file" id="photo" accept="image/*" capture="environment" hidden></label>
+  <button class="big camera" id="cam" type="button">📷 Check meal</button>
+  <label class="upload">or upload a photo<input type="file" id="photo" accept="image/*" hidden></label>
+  <input type="file" id="photo-capture" accept="image/*" capture="environment" hidden>
 
   <ul class="log" id="log"></ul>
   <p class="hint">Orders and checks show up on the dashboard automatically.</p>
 </main>
+
+<!-- Live camera -->
+<div class="camview" id="camview" hidden role="dialog" aria-label="Camera">
+  <video id="video" autoplay playsinline muted></video>
+  <img id="shot" alt="Captured meal" hidden>
+  <div class="cam-top"><button type="button" class="cam-btn" id="cam-close" aria-label="Close camera">✕</button>
+    <span class="cam-hint" id="cam-hint">Fit the whole meal in the frame</span>
+    <button type="button" class="cam-btn" id="cam-flip" aria-label="Switch camera" hidden>⟲</button></div>
+  <div class="cam-bottom" id="cam-live"><button type="button" class="shutter" id="shutter" aria-label="Take photo"></button></div>
+  <div class="cam-bottom" id="cam-review" hidden>
+    <button type="button" class="small" id="retake">↺ Retake</button>
+    <button type="button" class="small primary" id="use">✓ Check this meal</button>
+  </div>
+</div>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -157,19 +188,87 @@ async function downscale(file, max = 1280) {
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", 0.85);
 }
-$("#photo").onchange = async (e) => {
-  const file = e.target.files[0]; e.target.value = "";
-  if (!file) return;
+async function checkMeal(dataUrl) {
   const cam = $("#cam");
   busy(cam, true, "Checking… ");
   try {
-    const r = await post("/api/check-meal", { photo: await downscale(file) });
+    const r = await post("/api/check-meal", { photo: dataUrl });
     const level = { checked_off: "success", flagged: "error" }[r.outcome] || "warning";
     const checked = (r.compared || []).map((c) => `#${c.order_id} ${c.verdict === "pass" ? "✓" : c.verdict === "different dishes" ? "–" : "✕"}`).join("  ");
     note(level, r.message, [r.seen && `Camera saw: ${r.seen}`, r.warning, checked && `Checked: ${checked}`].filter(Boolean).join(" · "));
   } catch (err) { note("error", "Couldn't check the meal", err.message); }
   finally { busy(cam, false, "📷 Check meal"); }
+}
+async function fromFile(e) {
+  const file = e.target.files[0]; e.target.value = "";
+  if (file) await checkMeal(await downscale(file));
+}
+$("#photo").onchange = fromFile;          // "or upload a photo"
+$("#photo-capture").onchange = fromFile;  // phone's own camera app (fallback)
+
+// ---------- live camera ----------
+let camStream = null, facing = "environment", shotUrl = null;
+const canLiveCamera = () => !!(navigator.mediaDevices?.getUserMedia && window.isSecureContext);
+function showLive(live) {
+  $("#video").hidden = !live; $("#cam-live").hidden = !live;
+  $("#shot").hidden = live; $("#cam-review").hidden = live;
+  $("#cam-hint").textContent = live ? "Fit the whole meal in the frame" : "Is the whole meal visible?";
+}
+async function openCamera() {
+  // Live camera needs HTTPS or localhost. Otherwise use the phone's camera app.
+  if (!canLiveCamera()) { $("#photo-capture").click(); return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false,
+    });
+  } catch (e) {
+    note("warning", "Couldn't open the camera", `${e.message}. Use "or upload a photo" instead.`);
+    return;
+  }
+  $("#video").srcObject = camStream;
+  showLive(true);
+  $("#camview").hidden = false;
+  try {
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+    $("#cam-flip").hidden = cams.length < 2;
+  } catch { $("#cam-flip").hidden = true; }
+}
+function closeCamera() {
+  camStream?.getTracks().forEach((t) => t.stop());
+  camStream = null; shotUrl = null;
+  $("#video").srcObject = null;
+  $("#camview").hidden = true;
+}
+$("#cam").onclick = openCamera;
+$("#cam-close").onclick = closeCamera;
+$("#cam-flip").onclick = async () => {
+  facing = facing === "environment" ? "user" : "environment";
+  closeCamera();
+  await openCamera();
 };
+$("#shutter").onclick = () => {
+  const v = $("#video");
+  if (!v.videoWidth) return;
+  const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  shotUrl = c.toDataURL("image/jpeg", 0.85);
+  $("#shot").src = shotUrl;
+  $("#camview").classList.remove("flash"); void $("#camview").offsetWidth; $("#camview").classList.add("flash");
+  showLive(false);
+};
+$("#retake").onclick = () => showLive(true);
+$("#use").onclick = () => {
+  const url = shotUrl;
+  closeCamera();
+  if (url) checkMeal(url);
+};
+document.addEventListener("keydown", (e) => {
+  if ($("#camview").hidden) return;
+  if (e.key === "Escape") closeCamera();
+  if (e.key === " " && !$("#cam-live").hidden) { e.preventDefault(); $("#shutter").click(); }
+});
 </script>
 </body>
 </html>
