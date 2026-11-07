@@ -202,7 +202,7 @@ export default function DevPanel() {
               disabled={busy || scriptRunning}
               onClick={() =>
                 run(async () => {
-                  const o = await submitVoiceOrder({ items: p.items, customer_name: "Dev test" });
+                  const o = await submitVoiceOrder({ items: p.items });
                   return `Voice order #${o.id} created`;
                 })
               }

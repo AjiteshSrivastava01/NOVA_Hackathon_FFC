@@ -1,7 +1,7 @@
 // VOICE: speech (or typed text) -> an order in the menu format the backend uses.
 //
 //   understandOrder({ audio: Buffer, audioFormat: "wav", text?: string })
-//     -> { transcript, customer_name, items: [{ menu_id, qty, modifiers: { lettuce: "no", onion: "add" } }] }
+//     -> { transcript, items: [{ menu_id, qty, modifiers: { lettuce: "no", onion: "add" } }] }
 //
 // One call to an audio-capable model on OpenRouter does both steps (speech -> text -> order),
 // restricted to menu.js so it can't invent dishes. Without an API key, typed text still works
@@ -19,10 +19,9 @@ const DEFAULT_VOICE_MODEL = "google/gemini-3.8-flash";
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["transcript", "customer_name", "items"],
+  required: ["transcript", "items"],
   properties: {
     transcript: { type: "string" },
-    customer_name: { type: "string" },
     items: {
       type: "array",
       items: {
@@ -54,13 +53,13 @@ ${menuText()}
 
 Rules:
 - "transcript": exactly what was said (for audio), or the text you were given.
-- "customer_name": the name or table the order is for, e.g. "Sam" or "Table 12". Use "Guest" if none.
 - One entry per distinct dish + changes. "two burgers no lettuce" = one entry with qty 2.
 - "remove": ingredient ids the customer does NOT want ("no lettuce", "hold the cheese", "without onion").
 - "add": optional ingredient ids the customer wants added ("add onion", "extra pickles", "with tomato").
 - Map synonyms to the menu: cheeseburger/hamburger -> burger, chips -> fries, coke/pop/drink -> soda, salad -> salad.
 - Never invent dishes or ingredients. Ignore anything not on the menu.
-Return JSON only: {"transcript":"...","customer_name":"...","items":[{"menu_id":"burger","qty":2,"remove":["lettuce"],"add":[]}]}`;
+Orders are numbered automatically, so ignore any names or table numbers.
+Return JSON only: {"transcript":"...","items":[{"menu_id":"burger","qty":2,"remove":["lettuce"],"add":[]}]}`;
 
 /** Turn the model's items into validated backend order lines (drops anything invalid). */
 function cleanItems(rawItems) {
@@ -100,7 +99,6 @@ async function understandOrder({ audio, audioFormat = "wav", text, model } = {})
   }
   return {
     transcript: String(json.transcript || text || "").trim(),
-    customer_name: String(json.customer_name || "").trim().slice(0, 60) || "Guest",
     items: cleanItems(json.items),
     model: useModel, latency_ms: Date.now() - t0, cost_usd: cost,
   };
@@ -119,8 +117,6 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 async function parseOrder(transcript) {
   const text = transcript.toLowerCase();
-  const nameMatch = text.match(/(?:for|name is|this is|i'm|i am)\s+(table\s+\d+|[a-z]+)/);
-  const customer_name = nameMatch ? nameMatch[1].replace(/\b\w/g, (c) => c.toUpperCase()) : "Guest";
   const items = [];
   for (const chunk of text.split(/,|\band\b(?!\s+(?:no|extra|add)\b)/)) {
     for (const alias of ALIAS_KEYS) {
@@ -138,7 +134,7 @@ async function parseOrder(transcript) {
       break;
     }
   }
-  return { customer_name, items };
+  return { items };
 }
 
 // Kept for the older /api/voice/transcribe route.

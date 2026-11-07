@@ -90,7 +90,13 @@ test("retakes keep history; swap is only a suggestion until staff confirm", asyn
 test("rejects bad menu ids and modifiers", async () => {
   assert.equal((await post("/api/orders", { customer_name: "X", items: [{ menu_id: "burger", modifiers: { patty: "no" } }] })).status, 422);
   assert.equal((await post("/api/orders", { customer_name: "X", items: [{ menu_id: "pizza" }] })).status, 422);
-  assert.equal((await post("/api/orders", { customer_name: "", items: [{ menu_id: "soda" }] })).status, 422);
+  assert.equal((await post("/api/orders", { items: [] })).status, 422);
+});
+
+test("orders are identified by number only (no names stored)", async () => {
+  const o = await make("Somebody", [{ menu_id: "soda" }]);
+  assert.equal(o.customer_name, "");
+  assert.equal((await post("/api/orders", { items: [{ menu_id: "soda" }] })).status, 201);
 });
 
 test("photo upload: 501 without vision, works with fallback, photo is served", async () => {
@@ -125,7 +131,7 @@ test("concurrent cubby requests never double-book", async () => {
 
 test("voice parser placeholder", async () => {
   const r = await post("/api/voice/parse", { transcript: "Two burgers no lettuce and fries for Sam" });
-  assert.equal(r.data.customer_name, "Sam");
+  assert.equal(r.data.customer_name, undefined);
   assert.deepEqual(r.data.items[0], { menu_id: "burger", qty: 2, modifiers: { lettuce: "no" } });
   assert.equal(r.data.items[1].menu_id, "fries");
 });

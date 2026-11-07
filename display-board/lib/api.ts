@@ -168,7 +168,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (isMock()) return mock.createOrder(input);
   const e = ENDPOINTS.createOrder;
   const b = await http<BackendOrder>(e.method, e.path(), {
-    customer_name: input.customer_name?.trim() || "Guest",
+    customer_name: "", // orders are identified by number only (backend ignores names)
     items: toBackendLines(input.items),
     source: "voice",
   });

@@ -26,11 +26,11 @@ export async function runDemoScript(log: (msg: string) => void, isCancelled: () 
     log("Reset mock data (next order will be #21)");
     await gap();
 
-    const a = await submitVoiceOrder({ items: BURGER_WITH_LETTUCE, customer_name: "Sam" });
+    const a = await submitVoiceOrder({ items: BURGER_WITH_LETTUCE });
     log(`Voice order #${a.id}: burger with lettuce`);
     await gap();
 
-    const b = await submitVoiceOrder({ items: BURGER_NO_LETTUCE, customer_name: "Riley" });
+    const b = await submitVoiceOrder({ items: BURGER_NO_LETTUCE });
     log(`Voice order #${b.id}: burger, NO lettuce`);
     await gap();
 

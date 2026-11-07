@@ -89,14 +89,13 @@ async function refresh() {
   if (snap === lastSnapshot) return; // nothing changed -> don't touch the DOM
   lastSnapshot = snap;
   state.orders = orders;
-  for (const o of orders) names.set(o.id, o.customer_name);
   renderOrders();
   renderDetail();
   handleEvents(events);
   renderAlerts(orders, events);
 
   $("#cubbies").innerHTML = cubbies.map((c) => c.order_id
-    ? `<div class="cubby busy"><span class="ping"></span><b>${esc(c.label)}</b><span>#${c.order_id}</span><small>${esc(c.customer_name)}</small></div>`
+    ? `<div class="cubby busy"><span class="ping"></span><b>${esc(c.label)}</b><span>#${c.order_id}</span></div>`
     : `<div class="cubby"><b>${esc(c.label)}</b><small>free</small></div>`).join("");
 
   $("#events").innerHTML = events.map((e, i) => {
@@ -119,7 +118,7 @@ function renderOrders() {
     const a = enter("orders", o.id, i);
     return `
     <li data-id="${o.id}" data-status="${o.status}" class="ticket-card${o.id === state.selectedId ? " selected" : ""}${a.cls}"${a.style}>
-      <div class="row"><b>#${o.id} · ${esc(o.customer_name)}</b><span class="status ${o.status}">${STATUS[o.status]}${o.cubby_id && o.status === "in_cubby" ? " C" + o.cubby_id : ""}</span></div>
+      <div class="row"><b>#${o.id}</b><span class="status ${o.status}">${STATUS[o.status]}${o.cubby_id && o.status === "in_cubby" ? " C" + o.cubby_id : ""}</span></div>
       <div class="summary">${esc(orderSummary(o))} · ${esc(o.source)}</div>
     </li>`;
   }).join("");
@@ -136,7 +135,7 @@ function renderDetail() {
     d.classList.remove("swap-in"); void d.offsetWidth; d.classList.add("swap-in");
     lastDetailId = o.id;
   }
-  $("#d-title").textContent = `#${o.id} · ${o.customer_name}`;
+  $("#d-title").textContent = `Order #${o.id}`;
   const st = $("#d-status");
   st.className = "status " + o.status;
   st.textContent = STATUS[o.status] + (o.status === "in_cubby" ? ` · cubby C${o.cubby_id}` : "");
@@ -169,7 +168,6 @@ function renderDetail() {
 }
 
 // ---------- live events from the backend (input station, other screens, this one) ----------
-const names = new Map();         // order id -> customer name (kept after pickup)
 const handled = new Set();       // event ids already acted on
 let eventsPrimed = false;
 const eventKey = (e) => e.id || `${e.created_at}|${e.kind}|${e.order_id}`;
@@ -178,14 +176,14 @@ function handleEvents(events) {
   fresh.forEach((e) => handled.add(eventKey(e)));
   if (!eventsPrimed) { eventsPrimed = true; return; } // don't replay history on page load
   for (const e of fresh) {
-    const who = e.order_id ? `Order ${e.order_id}${names.get(e.order_id) ? ` for ${names.get(e.order_id)}` : ""}` : "";
+    const who = e.order_id ? `Order ${e.order_id}` : "";
     const cubby = /C(\d+)/.exec(e.detail || "");
     if (e.kind === "cubby_assigned" && cubby) {
       queueRelease("C" + cubby[1], e.order_id, `${who} is ready in cubby ${cubby[1]}.`);
     } else if (e.kind === "picked_up" && cubby) {
-      queueRelease("C" + cubby[1], e.order_id, `Enjoy your meal${names.get(e.order_id) ? ", " + names.get(e.order_id) : ""}! Cubby ${cubby[1]} is now free.`, true);
+      queueRelease("C" + cubby[1], e.order_id, `${who} picked up. Cubby ${cubby[1]} is now free.`, true);
     } else if (e.kind === "created" && e.detail === "voice") {
-      toast(`New voice order #${e.order_id}${names.get(e.order_id) ? " for " + names.get(e.order_id) : ""}`, true);
+      toast(`New voice order #${e.order_id}`, true);
     } else if (e.kind === "checked_off") {
       toast(`Order #${e.order_id} checked ✓`, true);
     } else if (e.level === "error" || e.level === "warning") {
@@ -207,7 +205,7 @@ function renderAlerts(orders, events) {
   const warnings = events.filter((e) => ALERT_KINDS.has(e.kind) && !dismissed.has(eventKey(e))
     && Date.parse(e.created_at) > recent && !resolved(e));
   $("#alerts").innerHTML = [
-    ...wrong.map((o) => `<div class="alert error" data-order="${o.id}"><b>⚠ Order #${o.id} (${esc(o.customer_name)}) is wrong</b>
+    ...wrong.map((o) => `<div class="alert error" data-order="${o.id}"><b>⚠ Order #${o.id} is wrong</b>
       <span>${esc((o.latest_inspection?.reasons || []).join("; "))}</span><em>Tap to open · fix the meal and check it again</em></div>`),
     ...warnings.map((e) => `<div class="alert warning"><b>${{ possible_mixup: "⚠ Possible mix-up", retake: "📷 Retake photo", no_match: "❓ No matching order", no_cubby: "🚫 Cubbies full" }[e.kind]}</b>
       <span>${esc(e.detail || "")}</span><button class="x" data-dismiss="${esc(eventKey(e))}" aria-label="Dismiss">✕</button></div>`),
@@ -332,7 +330,6 @@ function openOrderForm(draft = null, source = "manual") {
   f.dataset.source = source;
   $("#order-form-title").textContent = source === "voice" ? "Confirm voice order" : "New order";
   $("#order-lines").innerHTML = "";
-  f.customer.value = draft?.customer_name || "";
   (draft?.items?.length ? draft.items : [undefined]).forEach((l) => addLine(l));
   $("#dlg-order").showModal();
 }
@@ -349,7 +346,7 @@ $("#order-save").onclick = (e) => {
   }));
   if (!items.length) return toast("Add at least one item");
   run(async () => {
-    const o = await api("/api/orders", { json: { customer_name: f.customer.value, items, source: f.dataset.source || "manual" } });
+    const o = await api("/api/orders", { json: { items, source: f.dataset.source || "manual" } });
     $("#dlg-order").close();
     state.selectedId = o.id;
     await refresh();

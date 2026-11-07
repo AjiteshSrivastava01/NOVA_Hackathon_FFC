@@ -39,7 +39,7 @@ test("voice audio -> order in menu format (not saved until confirmed)", async ()
     items: [{ menu_id: "burger", qty: 2, remove: ["lettuce"], add: ["onion"] }, { menu_id: "fries", qty: 1, remove: [], add: [] }] };
   const r = await call("POST", "/api/voice/understand", { audio_base64: WAV });
   assert.equal(r.status, 200, JSON.stringify(r.data));
-  assert.equal(r.data.customer_name, "Sam");
+  assert.equal(r.data.customer_name, undefined);
   assert.deepEqual(r.data.items[0], { menu_id: "burger", qty: 2, modifiers: { lettuce: "no", onion: "add" } });
   assert.equal(r.data.summary, "2× Burger (no lettuce, add onion), Fries");
   assert.equal((await call("GET", "/api/orders")).data.length, 0);
@@ -75,7 +75,7 @@ test("wrong meal -> closest order flagged with reasons and an error alert", asyn
   assert.equal((await call("GET", `/api/orders/${o.id}`)).data.status, "needs_attention");
   const alert = (await events()).find((e) => e.kind === "check_failed");
   assert.equal(alert.level, "error");
-  assert.match(alert.detail, /Order #\d+ \(Cy\) is wrong/);
+  assert.match(alert.detail, new RegExp(`^Order #${o.id} is wrong`));
 });
 
 test("matches a newer order but one change off an older one -> possible mix-up warning", async () => {

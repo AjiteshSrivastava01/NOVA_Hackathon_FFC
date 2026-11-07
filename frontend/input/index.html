@@ -46,7 +46,7 @@
 <header><h1>FFC Input</h1><a href="/">Dashboard →</a></header>
 <main>
   <button class="big voice" id="mic" type="button">🎙 Add order</button>
-  <div class="type"><input id="typed" placeholder="…or type it: 2 burgers no lettuce for Sam" autocomplete="off"><button class="small" id="send" type="button">Add</button></div>
+  <div class="type"><input id="typed" placeholder="…or type it: 2 burgers no lettuce, fries" autocomplete="off"><button class="small" id="send" type="button">Add</button></div>
 
   <div class="card" id="confirm" hidden>
     <div class="who" id="c-who"></div>
@@ -109,7 +109,7 @@ async function understand(body) {
   busy(mic, true, "Understanding… ");
   try {
     draft = await post("/api/voice/understand", body);
-    $("#c-who").textContent = draft.customer_name;
+    $("#c-who").textContent = "New order";
     $("#c-what").textContent = draft.summary;
     $("#c-heard").textContent = draft.transcript ? `Heard: “${draft.transcript}”` : "";
     $("#confirm").hidden = false;
@@ -142,8 +142,8 @@ $("#c-no").onclick = () => { draft = null; $("#confirm").hidden = true; };
 $("#c-ok").onclick = async () => {
   if (!draft) return;
   try {
-    const o = await post("/api/orders", { customer_name: draft.customer_name, items: draft.items, source: "voice" });
-    note("success", `Order #${o.id} added for ${o.customer_name}`, draft.summary);
+    const o = await post("/api/orders", { items: draft.items, source: "voice" });
+    note("success", `Order #${o.id} added`, draft.summary);
     $("#typed").value = "";
   } catch (e) { note("error", "Couldn't add the order", e.message); }
   draft = null; $("#confirm").hidden = true;

@@ -45,7 +45,7 @@ function seed(): MockState {
         cubby: null,
         flag_reason: null,
         created_at: minutesAgo(14),
-        customer_name: "Ava",
+        customer_name: "",
       },
       {
         id: 19,
@@ -57,7 +57,7 @@ function seed(): MockState {
         cubby: 2,
         flag_reason: null,
         created_at: minutesAgo(9),
-        customer_name: "Ben",
+        customer_name: "",
       },
       {
         id: 20,
@@ -69,7 +69,7 @@ function seed(): MockState {
         cubby: null,
         flag_reason: null,
         created_at: minutesAgo(4),
-        customer_name: "Chloe",
+        customer_name: "",
       },
     ],
     inspections: [],
@@ -161,7 +161,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     cubby: null,
     flag_reason: null,
     created_at: new Date().toISOString(),
-    customer_name: input.customer_name?.trim() || "Guest",
+    customer_name: "", // orders are identified by number only
   };
   s.orders.push(order);
   save(s);
