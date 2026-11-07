@@ -20,10 +20,11 @@ const PRESETS: { label: string; items: OrderItem[] }[] = [
   { label: "🍔 Burger + lettuce", items: BURGER_WITH_LETTUCE },
   { label: "🍔 Burger, NO lettuce", items: BURGER_NO_LETTUCE },
   {
-    label: "🥪 Chicken sandwich + salad",
+    label: "🍗 Wings + 🍕 pizza + 💧 water",
     items: [
-      { menu_id: "chicken_sandwich", qty: 1 },
-      { menu_id: "salad", qty: 1 },
+      { menu_id: "wings", qty: 1 },
+      { menu_id: "pizza", qty: 1 },
+      { menu_id: "water", qty: 1 },
     ],
   },
   { label: "🍟 Fries ×2 + soda", items: [{ menu_id: "fries", qty: 2 }, { menu_id: "soda", qty: 1 }] },

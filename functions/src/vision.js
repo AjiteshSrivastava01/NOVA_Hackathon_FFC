@@ -19,7 +19,7 @@
 // matching logic turns into needs_review). The model itself never says unknown.
 //
 // Reference photos: functions/vision-refs/<menu_id>/<caption>.jpg
-//   e.g. vision-refs/burger/no lettuce, with cheese.jpg
+//   e.g. vision-refs/burger/no lettuce.jpg
 //   Keep them small (~512px wide, <100KB). Only refs for dishes on the selected
 //   ticket are sent, which keeps each request cheap.
 
@@ -72,6 +72,10 @@ You report ONLY what is visible in the photo. You never judge whether the order 
 
 Rules:
 - Use only menu_id and component ids from the catalog. Never invent dishes.
+- Ignore anything that is not in the catalog: extra burger toppings (cheese, onion,
+  pickles, sauces...), garnishes, plates, cutlery.
+- Drinks: "soda" is a soft drink (can, bottle or cup of a coloured/fizzy drink);
+  "water" is a water bottle or a glass/cup of clear water.
 - One entry in "items" per physical unit (two burgers = two entries).
 - For EVERY component listed for that dish in the catalog, answer exactly one of:
     "present" - it is on the item

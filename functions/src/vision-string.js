@@ -8,8 +8,8 @@
 //
 // Canonical notes, generated from the menu (src/menu.js):
 //   a standard ingredient that is missing  -> "no <ingredient>"   e.g. "no lettuce"
-//   an optional ingredient that is present -> "add <ingredient>"  e.g. "add onion"
-//   several notes are joined with ", " in menu order: "no lettuce, add onion"
+//   an optional ingredient that is present -> "add <ingredient>"  (none on the current menu)
+//   several notes are joined with ", " in menu order: "no lettuce, no tomato"
 // compareOrders() treats "extra/with" like "add" and "without/hold the" like "no".
 
 const { MENU } = require("./menu");
@@ -44,7 +44,7 @@ const formatSummary = (items) => items.map(formatItem).join(", ");
 
 /**
  * Parse a voice summary back into items, e.g.
- * "2× Burger (no lettuce, add onion), Fries for table 12"
+ * "2× Burger (no lettuce, no tomato), Fries for table 12"
  * (handy when all you have is the string).
  */
 function parseSummary(text) {
@@ -65,7 +65,10 @@ function parseSummary(text) {
 }
 
 // ---------- matching voice vs vision ----------
-const NAME_ALIASES = { coke: "soda", pop: "soda", drink: "soda", salad: "side salad", "chips": "fries", hamburger: "burger", cheeseburger: "burger" };
+const NAME_ALIASES = {
+  coke: "soda", pop: "soda", "soft drink": "soda", chips: "fries", hamburger: "burger", cheeseburger: "burger",
+  "chicken wing": "wings", wing: "wings", "pizza slice": "pizza", "slice of pizza": "pizza", "bottled water": "water", "water bottle": "water",
+};
 // burgers -> burger, sandwiches -> sandwich, tomatoes -> tomato, fries -> fries
 function singular(s) {
   if (/(ch|sh|ss|x|o)es$/i.test(s)) return s.slice(0, -2);
@@ -85,7 +88,20 @@ function normNotes(notes) {
       .replace(/\w+$/, singular))
     .sort().join(", ");
 }
-const keyOf = (it) => `${normName(it.name)}|${normNotes(it.notes)}`;
+// Menu dish for a (normalised) name, e.g. "burger" -> MENU.burger
+function dishFor(name) {
+  return Object.entries(MENU).find(([id, d]) => id === name || d.name.toLowerCase() === name)?.[1];
+}
+// Keep only notes about the dish's own ingredients ("no lettuce"); extras that
+// aren't on the menu ("extra cheese", "add onion") are ignored, like the camera does.
+function menuNotes(name, notes) {
+  const dish = dishFor(name);
+  const n = normNotes(notes);
+  if (!dish || !n) return n;
+  const ingredients = Object.entries(dish.components).flatMap(([cid, c]) => [cid, singular(c.name.toLowerCase())]);
+  return n.split(", ").filter((x) => ingredients.includes(x.replace(/^(no|add) /, ""))).join(", ");
+}
+const keyOf = (it) => { const name = normName(it.name); return `${name}|${menuNotes(name, it.notes)}`; };
 
 /**
  * Compare what was ordered (voice) with what was seen (vision).

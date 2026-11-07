@@ -1,55 +1,35 @@
-// Stable menu definitions.
+// The menu. Single source of truth for voice, vision, matching and the dashboards.
 //
-// IDs here are a contract shared by voice, vision and the dashboard. Never
-// rename an ID once teammates depend on it -- add a new one instead.
+//   burger  (standard toppings: lettuce, tomato; either can be left off)
+//   fries, wings, soda, pizza, water
 //
-// Each menu item lists its *components*: things vision can try to observe.
-// `default: true` means it comes on the item unless the order says otherwise.
+// IDs are a contract: display-board/lib/menu.ts mirrors this file.
+// Each item lists its *components*: things the camera checks. Anything else on
+// the plate that isn't listed here (e.g. extra toppings like cheese or onion on a
+// burger) is ignored.
+// `default: true` = comes with the item; `removable` = the customer can say "no ___".
 
 const MENU = {
   burger: {
     name: "Burger",
     components: {
       bun: { name: "Bun", default: true, removable: false },
-      patty: { name: "Beef patty", default: true, removable: false },
+      patty: { name: "Patty", default: true, removable: false },
       lettuce: { name: "Lettuce", default: true, removable: true },
       tomato: { name: "Tomato", default: true, removable: true },
-      cheese: { name: "Cheese", default: true, removable: true },
-      onion: { name: "Onion", default: false, removable: true },
-      pickles: { name: "Pickles", default: false, removable: true },
     },
   },
-  chicken_sandwich: {
-    name: "Chicken Sandwich",
-    components: {
-      bun: { name: "Bun", default: true, removable: false },
-      chicken: { name: "Chicken", default: true, removable: false },
-      lettuce: { name: "Lettuce", default: true, removable: true },
-      pickles: { name: "Pickles", default: true, removable: true },
-      tomato: { name: "Tomato", default: false, removable: true },
-    },
-  },
-  fries: {
-    name: "Fries",
-    components: { fries: { name: "Fries", default: true, removable: false } },
-  },
-  salad: {
-    name: "Side Salad",
-    components: {
-      lettuce: { name: "Lettuce", default: true, removable: false },
-      tomato: { name: "Tomato", default: true, removable: true },
-      onion: { name: "Onion", default: true, removable: true },
-    },
-  },
-  soda: {
-    name: "Soda",
-    components: { cup: { name: "Cup", default: true, removable: false } },
-  },
+  fries: { name: "Fries", components: { fries: { name: "Fries", default: true, removable: false } } },
+  wings: { name: "Wings", components: { wings: { name: "Wings", default: true, removable: false } } },
+  soda: { name: "Soda", components: { soda: { name: "Soda", default: true, removable: false } } },
+  pizza: { name: "Pizza", components: { pizza: { name: "Pizza", default: true, removable: false } } },
+  water: { name: "Water", components: { water: { name: "Water", default: true, removable: false } } },
 };
 
 /**
  * Return {componentId: shouldBePresent} for one unit of a menu item.
- * modifiers: {componentId: "add" | "no"}
+ * modifiers: {componentId: "no"}   ("add" is accepted for optional components; the
+ * current menu has none)
  */
 function expectedComponents(menuId, modifiers = {}) {
   const item = MENU[menuId];

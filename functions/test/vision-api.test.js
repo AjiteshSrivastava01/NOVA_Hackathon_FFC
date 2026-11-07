@@ -21,7 +21,7 @@ function fakeModelSees(items) {
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }], usage: { cost: 0.003 } }));
   };
 }
-const BURGER_NO_LETTUCE = { bun: "present", patty: "present", lettuce: "absent", tomato: "present", cheese: "present", onion: "absent", pickles: "absent" };
+const BURGER_NO_LETTUCE = { bun: "present", patty: "present", lettuce: "absent", tomato: "present" };
 
 test("describe without a key -> 501", async () => {
   delete process.env.OPENROUTER_API_KEY;

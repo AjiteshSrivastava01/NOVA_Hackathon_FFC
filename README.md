@@ -7,6 +7,15 @@ A shared kitchen dashboard and backend in JavaScript, hosted on Firebase. The fu
 
 Later, voice replaces manual ticket entry and vision replaces the sample inspection.
 
+## Menu
+
+| Item | Standard | Can be changed |
+|---|---|---|
+| Burger | bun, patty, lettuce, tomato | "no lettuce", "no tomato" |
+| Fries, Wings, Pizza, Soda, Water | — | — |
+
+The menu is defined in `functions/src/menu.js`, and `display-board/lib/menu.ts` mirrors it. The camera ignores anything not on the menu, such as extra burger toppings like cheese or onion.
+
 ## How it works
 
 Two screens:
@@ -137,7 +146,7 @@ Other routes: `GET /api/menu`, `GET /api/orders/:id`, `POST /api/orders/demo`,
 **Observations** (vision reports what it sees; `matching.js` decides the verdict):
 
 ```json
-{"items": [{"menu_id": "burger", "components": {"lettuce": "unknown", "cheese": "present"}}]}
+{"items": [{"menu_id": "burger", "components": {"lettuce": "absent", "tomato": "present"}}]}
 ```
 
 - Include one entry per physical item.
