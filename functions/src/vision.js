@@ -72,8 +72,14 @@ You report ONLY what is visible in the photo. You never judge whether the order 
 
 Rules:
 - Use only menu_id and component ids from the catalog. Never invent dishes.
-- Ignore anything that is not in the catalog: extra burger toppings (cheese, onion,
-  pickles, sauces...), garnishes, plates, cutlery.
+- Ignore anything that is not in the catalog: garnishes, plates, cutlery, packaging.
+- Burgers: the ONLY things that matter are lettuce and tomato. Extra toppings
+  (cheese, onion, pickles, bacon, jalapeños, mushrooms, sauces...) do not matter:
+  never report them, and never let them change your lettuce/tomato answer or
+  lower your confidence. Lettuce = a green leafy layer. Tomato = red round slices.
+  Pickles, onion, peppers or green sauce are NOT lettuce. Ketchup, red onion or
+  red sauce is NOT tomato. A cheeseburger with lettuce and tomato is simply a
+  burger with lettuce and tomato present.
 - Drinks: "soda" is a soft drink (can, bottle or cup of a coloured/fizzy drink);
   "water" is a water bottle or a glass/cup of clear water.
 - One entry in "items" per physical unit (two burgers = two entries).
@@ -220,10 +226,13 @@ function normalize(raw) {
         ? Object.fromEntries(it.components.map((c) => [c.component, c.state]))
         : it.components || {};
       const components = {};
-      for (const cid of Object.keys(MENU[it.menu_id].components)) {
+      for (const [cid, comp] of Object.entries(MENU[it.menu_id].components)) {
         const v = given[cid];
         if (v === "present" || v === "absent") components[cid] = v;
-        else missing.push(`${it.menu_id}.${cid}`);
+        // Fixed parts (bun, patty, the fries themselves...) come with the dish: if the
+        // model recognised the dish but didn't mention them, they're there.
+        else if (comp.default && !comp.removable) components[cid] = "present";
+        else missing.push(`${it.menu_id}.${cid}`); // only lettuce/tomato can force a retake
       }
       return { menu_id: it.menu_id, components };
     });
