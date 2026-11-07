@@ -38,6 +38,7 @@
   .log li.warning { border-left: 10px solid var(--coral); }
   .log li small { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
   .hint { color: var(--muted); font-size: .85rem; text-align: center; }
+  .danger { align-self: center; background: #fff; color: var(--ink); border-color: var(--strawberry); margin-top: 8px; }
   .upload { align-self: center; margin-top: -6px; color: var(--ink); font-weight: 600; text-decoration: underline; cursor: pointer; }
   .camview { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; align-items: center; justify-content: center; }
   .camview video, .camview img { width: 100%; height: 100%; object-fit: contain; background: #000; }
@@ -76,6 +77,7 @@
 
   <ul class="log" id="log"></ul>
   <p class="hint">Orders and checks show up on the dashboard automatically.</p>
+  <button class="small danger" id="clear-all" type="button">🗑 Clear all orders</button>
 </main>
 
 <!-- Live camera -->
@@ -205,6 +207,16 @@ async function fromFile(e) {
 }
 $("#photo").onchange = fromFile;          // "or upload a photo"
 $("#photo-capture").onchange = fromFile;  // phone's own camera app (fallback)
+
+// ---------- clear everything ----------
+$("#clear-all").onclick = async () => {
+  if (!confirm("Clear ALL orders, checks and cubbies for everyone? This can't be undone.")) return;
+  try {
+    await post("/api/reset", {});
+    $("#log").innerHTML = "";
+    note("success", "All orders cleared");
+  } catch (e) { note("error", "Couldn't clear the orders", e.message); }
+};
 
 // ---------- live camera ----------
 let camStream = null, facing = "environment", shotUrl = null;

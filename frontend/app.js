@@ -295,8 +295,9 @@ $("#btn-pickup").onclick = () => run(async () => {
   await refresh();
 });
 
-$("#btn-reset").onclick = () => confirm("Delete all orders and inspections?") && run(async () => {
+$("#btn-reset").onclick = () => confirm("Clear ALL orders, checks and cubbies for everyone? This can't be undone.") && run(async () => {
   await api("/api/reset", { method: "POST" });
+  toast("All orders cleared", true);
   state.selectedId = null;
   await refresh();
 });
