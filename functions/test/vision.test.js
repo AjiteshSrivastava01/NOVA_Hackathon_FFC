@@ -90,3 +90,23 @@ test("prompt does not leak the requested modifiers", () => {
   assert.match(text, /1x burger/);
   assert.doesNotMatch(text, /no lettuce|"lettuce":"no"/i);
 });
+
+test("burger with extra toppings: toppings ignored, bun/patty assumed, lettuce/tomato decide", async () => {
+  process.env.OPENROUTER_API_KEY = "test";
+  // the model talks about cheese/onion/pickles and skips bun/patty
+  fakeModel(JSON.stringify({ photo_quality: "good", confidence: 0.85, notes: "cheeseburger with onions",
+    items: [{ menu_id: "burger", components: [
+      { component: "cheese", state: "present" }, { component: "onion", state: "present" }, { component: "pickles", state: "present" },
+      { component: "lettuce", state: "absent" }, { component: "tomato", state: "present" },
+    ] }] }));
+  const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);
+  assert.equal(obs.retake, false);
+  assert.deepEqual(obs.items[0].components, { bun: "present", patty: "present", lettuce: "absent", tomato: "present" });
+  // order is "burger, no lettuce" -> matches despite the extra toppings
+  assert.equal(evaluate(order.items, obs).verdict, "pass");
+});
+
+test("prompt tells the model extra toppings don't matter", () => {
+  assert.match(vision.SYSTEM_PROMPT, /Extra toppings[\s\S]*do not matter/);
+  assert.match(vision.SYSTEM_PROMPT, /Pickles, onion, peppers or green sauce are NOT lettuce/);
+});
