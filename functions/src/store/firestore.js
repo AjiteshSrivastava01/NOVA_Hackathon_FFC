@@ -46,7 +46,7 @@ function createFirestoreStore() {
     },
 
     async reset() {
-      for (const c of ["orders", "inspections", "events", "counters", "cubbies"]) {
+      for (const c of ["orders", "inspections", "events", "counters", "cubbies", "vision_results"]) {
         await db.recursiveDelete(db.collection(c));
       }
       await bucket().deleteFiles({ prefix: "photos/" }).catch(() => {});

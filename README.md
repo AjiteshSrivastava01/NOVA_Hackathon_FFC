@@ -23,16 +23,27 @@ npm install
 npm start
 ```
 
-Then open http://localhost:8000. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
+Then open http://localhost:8000 for the dashboard and http://localhost:8000/vision-lab/ for Vision Lab. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
 
-## Deploy to Firebase
+## Firebase (project `nova-ffc`)
 
-Setup:
+Everything is wired to the Firebase project **`nova-ffc`** (`.firebaserc`).
 
-1. Create a project at https://console.firebase.google.com and switch it to the **Blaze** plan. Cloud Functions require Blaze; hackathon usage stays within the free tier.
-2. In the console, turn on **Firestore Database** and **Storage**.
-3. Replace `YOUR-FIREBASE-PROJECT-ID` in `.firebaserc` with your project ID.
-4. Install the Firebase CLI:
+| Part | Where it runs | Data |
+|---|---|---|
+| Dashboard `frontend/` and Vision Lab `frontend/vision-lab/` | Firebase Hosting → https://nova-ffc.web.app and `/vision-lab/` | none of its own |
+| Backend API `functions/` | Cloud Function `api` (Hosting forwards `/api/**` and `/photos/**`) | Firestore: `orders`, `inspections`, `cubbies`, `events`, `vision_results`; Storage: `photos/` |
+| Voice app `voice-order-app/` | Firebase App Hosting (`apphosting.yaml`) | Firestore: `voice_orders` |
+| Display board `display-board/` | Firebase App Hosting (`apphosting.yaml`) | uses the backend at nova-ffc.web.app |
+
+Locally, everything runs **in memory** by default, so you don't need any Firebase setup to develop.
+
+### One-time setup (console: https://console.firebase.google.com/project/nova-ffc)
+
+1. Switch to the **Blaze** plan (bottom left, **Upgrade**). Cloud Functions, Storage and App Hosting need it; the free allowance covers a hackathon. Set a budget alert.
+2. **Build → Firestore Database → Create database.** Choose production mode and a location such as `us-central1` (it can't be changed later).
+3. **Build → Storage → Get started.** Choose production mode and the same location.
+4. Install the CLI:
    ```bash
    npm install -g firebase-tools
    ```
@@ -40,14 +51,44 @@ Setup:
    ```bash
    firebase login
    ```
+6. Store the OpenRouter key as a secret. It asks for the value, so the key never goes in a file:
+   ```bash
+   firebase functions:secrets:set OPENROUTER_API_KEY
+   ```
+7. Optional: create `functions/.env.nova-ffc` (git-ignored) for the deployed function's settings:
+   ```
+   OPENROUTER_VISION_MODEL=google/gemini-3.8-flash
+   LAB_PASSWORD=pick-something
+   ```
+   `LAB_PASSWORD` stops strangers from using Vision Lab on the public site and spending your credit.
 
-Deploy from the repo root:
+### Deploy the dashboard, backend and Vision Lab
+
+From the repo root:
 
 ```bash
 firebase deploy
 ```
 
-Hosting serves `frontend/`. Requests to `/api/**` and `/photos/**` go to the `api` Cloud Function (`functions/index.js`). That function stores data in Firestore and photos in Cloud Storage, so they survive redeploys.
+This deploys Hosting, the `api` function, and the Firestore and Storage rules (which deny direct browser access, so only the function can read or write).
+
+### Deploy the voice app and display board (App Hosting)
+
+For each app, in the console go to **Build → App Hosting → Get started**, connect this GitHub repo, and set the **root directory** to `voice-order-app` or `display-board`. Pushing to `main` then redeploys automatically.
+
+The voice app also needs access to the key:
+
+```bash
+firebase apphosting:secrets:grantaccess OPENROUTER_API_KEY --backend voice-order-app
+```
+
+### Test against Firebase locally (optional)
+
+```bash
+firebase emulators:start
+```
+
+This runs Hosting, Functions, Firestore and Storage locally, with a UI at http://localhost:4000. Functions read secrets from `functions/.secret.local` (git-ignored) when emulated.
 
 ## Integration contract
 
@@ -95,7 +136,7 @@ Other routes: `GET /api/menu`, `GET /api/orders/:id`, `POST /api/orders/demo`,
 
 | Team | File |
 |---|---|
-| Vision | `functions/src/vision.js` → `analyze(photo, contentType, order)` |
+| Vision | `functions/src/vision.js` → `analyze(photo, contentType, order)`, `describePhoto(photo)`; `functions/src/vision-string.js`; Vision Lab at `/vision-lab/` |
 | Voice | `functions/src/voice.js` → `transcribe(audio)`, `parseOrder(text)` |
 | Logic | `functions/src/matching.js` |
 | UI | `frontend/` (plain HTML/CSS/JS, no build step) |

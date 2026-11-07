@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 // Where the team backend (functions/, `npm start`) is running.
+// Deployed: https://nova-ffc.web.app (set in apphosting.yaml).
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {

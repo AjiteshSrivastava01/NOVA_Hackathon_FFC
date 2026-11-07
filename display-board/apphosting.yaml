@@ -1,0 +1,12 @@
+# Firebase App Hosting config (project nova-ffc).
+# Create the backend once: Firebase console → Build → App Hosting → Get started,
+# connect this GitHub repo, root directory: display-board
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+env:
+  # The team backend: Firebase Hosting serves it at nova-ffc.web.app and forwards
+  # /api/** and /photos/** to the Cloud Function. Needed at build time (rewrites).
+  - variable: BACKEND_URL
+    value: https://nova-ffc.web.app
+    availability: [BUILD, RUNTIME]

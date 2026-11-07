@@ -27,17 +27,17 @@ export async function POST(req: Request) {
     // "Table 12" -> look up (plain code, no AI)
     const recallTable = parseRecall(transcript);
     if (recallTable !== null) {
-      const found = getOpenForTable(recallTable);
+      const found = await getOpenForTable(recallTable);
       if (found.length === 0) {
         return Response.json({
           ok: true, action: "not_found", transcript, table: recallTable,
-          message: `No open order for table ${recallTable}.`, orders: listOpen(),
+          message: `No open order for table ${recallTable}.`, orders: await listOpen(),
         });
       }
       return Response.json({
         ok: true, action: "recalled", transcript, table: recallTable,
         summary: formatSummary(found.flatMap((o) => o.items), recallTable),
-        orders: listOpen(),
+        orders: await listOpen(),
       });
     }
 
@@ -50,11 +50,11 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, transcript, error: `I didn't hear any food or drinks for table ${parsed.table}.` }, { status: 422 });
     }
 
-    const order = addOrder(parsed.table, parsed.items, transcript);
+    const order = await addOrder(parsed.table, parsed.items, transcript);
     return Response.json({
       ok: true, action: "created", transcript, table: order.table,
       summary: formatSummary(order.items, order.table),
-      orders: listOpen(),
+      orders: await listOpen(),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Something went wrong.";
