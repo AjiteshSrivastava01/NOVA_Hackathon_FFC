@@ -139,7 +139,7 @@ function suggestSwap(observations, otherOrders) {
   return {
     order_id: best.order.id,
     verdict: best.result.verdict,
-    message: `This meal appears to match Order ${best.order.id} (${best.order.customer_name}) — possible swap. Staff must confirm.`,
+    message: `This meal appears to match Order #${best.order.id} — possible swap. Staff must confirm.`,
   };
 }
 

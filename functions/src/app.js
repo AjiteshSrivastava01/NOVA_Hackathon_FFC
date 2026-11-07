@@ -116,14 +116,14 @@ function createApp(store) {
     });
   }
 
-  async function createOrder({ customer_name, items, source = "manual" }) {
-    const name = String(customer_name || "").trim();
-    if (!name || name.length > 60) throw new HttpError(422, "customer_name is required (max 60 chars)");
+  // Orders are identified by number only (#5). customer_name is kept as an empty
+  // field so older clients that send or read it keep working.
+  async function createOrder({ items, source = "manual" }) {
     const clean = validateItems(items);
     const id = await store.tx(async (t) => {
       const id = await t.nextId("orders");
       t.set("orders", id, {
-        id, customer_name: name, items: clean, source, status: "pending",
+        id, customer_name: "", items: clean, source, status: "pending",
         cubby_id: null, created_at: now(), picked_up_at: null,
       });
       logEvent(t, id, "created", source);
@@ -221,7 +221,6 @@ function createApp(store) {
     if (Math.random() < 0.5) lines.push({ menu_id: "soda", qty: 1 });
     res.status(201);
     return createOrder({
-      customer_name: pick(["Ava", "Ben", "Chloe", "Dev", "Ella", "Finn", "Grace", "Hugo", "Isla", "Jay"]),
       items: lines, source: "demo",
     });
   }));
@@ -308,7 +307,7 @@ function createApp(store) {
   app.get("/api/cubbies", route(async () => {
     const [cubbies, orders] = await Promise.all([store.list("cubbies", { orderBy: "id" }), store.list("orders")]);
     const byId = new Map(orders.map((o) => [o.id, o]));
-    return cubbies.map((c) => ({ ...c, customer_name: byId.get(c.order_id)?.customer_name ?? null }));
+    return cubbies.map((c) => ({ ...c, customer_name: byId.get(c.order_id) ? "" : null }));
   }));
 
   app.get("/api/events", route(async (req) =>
@@ -346,7 +345,7 @@ function createApp(store) {
   // ---------- input station: voice -> order, camera -> check an order off ----------
 
   // Body: { audio_base64: "data:audio/wav;base64,..." } or { text: "two burgers no lettuce for Sam" }
-  // -> { transcript, customer_name, items (menu format), summary }   (nothing is saved yet:
+  // -> { transcript, items (menu format), summary }   (nothing is saved yet:
   //    the station shows it, and on "Add" posts it to POST /api/orders with source "voice")
   app.post("/api/voice/understand", route(async (req) => {
     const b = req.body || {};
@@ -419,14 +418,14 @@ function createApp(store) {
         && x.r.reasons.length === 1 && !/expected \d+, saw \d+/.test(x.r.reasons[0]));
       if (mixup) {
         await log(mixup.o.id, "possible_mixup",
-          `Meal matched Order #${o.id}, but older Order #${mixup.o.id} (${mixup.o.customer_name}) differs only by: ${mixup.r.reasons[0]}. Check #${mixup.o.id} was made right.`,
+          `Meal matched Order #${o.id}, but older Order #${mixup.o.id} differs only by: ${mixup.r.reasons[0]}. Check #${mixup.o.id} was made right.`,
           "warning");
       }
-      await log(o.id, "checked_off", `Order #${o.id} (${o.customer_name}) checked: ${seen}`, "success");
+      await log(o.id, "checked_off", `Order #${o.id} checked: ${seen}`, "success");
       const cubby = await assignCubby(o.id, { auto: true });
       return {
-        outcome: "checked_off", order_id: o.id, customer_name: o.customer_name, seen, cubby,
-        message: `✓ Order #${o.id} (${o.customer_name}) is correct` + (cubby ? ` → cubby ${cubby.label}` : " (no free cubby)"),
+        outcome: "checked_off", order_id: o.id, seen, cubby,
+        message: `✓ Order #${o.id} is correct` + (cubby ? ` → cubby ${cubby.label}` : " (no free cubby)"),
         warning: mixup ? `Possible mix-up with older Order #${mixup.o.id}` : null,
       };
     }
@@ -434,12 +433,12 @@ function createApp(store) {
     const best = candidates.sort((a, b2) => a.score - b2.score || a.o.id - b2.o.id)[0];
     const insp = await recordInspection(best.o.id, observations, "camera", photoPath);
     await log(best.o.id, "check_failed",
-      `Order #${best.o.id} (${best.o.customer_name}) is wrong: ${insp.reasons.join("; ")}. Ordered: ${orderText(best.o)}. Camera saw: ${seen}.`,
+      `Order #${best.o.id} is wrong: ${insp.reasons.join("; ")}. Ordered: ${orderText(best.o)}. Camera saw: ${seen}.`,
       "error");
     return {
-      outcome: "flagged", order_id: best.o.id, customer_name: best.o.customer_name, seen,
+      outcome: "flagged", order_id: best.o.id, seen,
       reasons: insp.reasons, swap_suggestion: insp.swap_suggestion,
-      message: `✕ Order #${best.o.id} (${best.o.customer_name}) doesn't match: ${insp.reasons.join("; ")}`,
+      message: `✕ Order #${best.o.id} doesn't match: ${insp.reasons.join("; ")}`,
     };
   }));
 

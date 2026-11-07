@@ -14,7 +14,7 @@ import type { Inspection, Order, OrderItem } from "./types";
  * Create a new ticket from a confirmed voice order.
  * Caller: P1, after staff confirm the voice confirmation card.
  * Backend: POST /api/orders { customer_name, items: [{ menu_id, qty, modifiers: { lettuce: "no" } }], source: "voice" }
- * `customer_name` defaults to "Guest" (the backend requires one).
+ * Orders are identified by number only; the backend ignores `customer_name`.
  */
 export function submitVoiceOrder(order: { items: OrderItem[]; customer_name?: string }): Promise<Order> {
   return api.createOrder(order);
