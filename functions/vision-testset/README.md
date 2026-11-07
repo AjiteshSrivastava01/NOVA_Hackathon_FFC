@@ -15,7 +15,7 @@ Put 20–40 photos in this folder, then describe each one in `labels.json` with 
 
 - About a third should be **deliberate mistakes**, where the truth differs from the ticket.
 - Add a few **bad photos** (blurry, dark, half out of frame) with `"truth": "retake"`.
-- Add a few where lettuce is **hidden** under the bun. Mark it `"unknown"` in the truth.
+- Add a few where lettuce is **partly hidden** under the bun. Label the truth with what is really there (`"present"` or `"absent"`). These show how well the model guesses hidden ingredients.
 
 Put your key in `functions/vision.local.env` (git-ignored), on one line:
 
