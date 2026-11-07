@@ -1,6 +1,7 @@
 // Compare vision models on the labelled test set.
 //
-//   OPENROUTER_API_KEY=sk-or-... node scripts/eval-vision.js <model-id> [<model-id> ...]
+//   node scripts/eval-vision.js <model-id> [<model-id> ...]
+//   (API key from functions/vision.local.env or the OPENROUTER_API_KEY env var)
 //
 // Reads vision-testset/labels.json + photos. Prints a comparison table and writes
 // per-photo details to vision-testset/results-<time>.json so you can see what
@@ -14,7 +15,7 @@ const { evaluate } = require("../src/matching");
 const DIR = path.join(__dirname, "..", "vision-testset");
 const models = process.argv.slice(2);
 if (!models.length || !process.env.OPENROUTER_API_KEY) {
-  console.error("Usage: OPENROUTER_API_KEY=... node scripts/eval-vision.js <model-id> [<model-id> ...]");
+  console.error("Usage: node scripts/eval-vision.js <model-id> [<model-id> ...]  (put OPENROUTER_API_KEY in functions/vision.local.env)");
   process.exit(1);
 }
 const cases = JSON.parse(fs.readFileSync(path.join(DIR, "labels.json"), "utf8"));
@@ -27,11 +28,11 @@ async function runCase(model, c) {
   const buf = fs.readFileSync(path.join(DIR, c.photo));
   const out = { photo: c.photo };
   try {
-    const pred = await vision.analyze(buf, mime(c.photo), order, { model });
+    const pred = await vision.analyze(buf, mime(c.photo), order, { model, throwOnError: true });
     out.pred = pred;
     out.latency_ms = pred.latency_ms;
     out.cost = pred.cost_usd;
-    out.pred_verdict = evaluate(order.items, pred).verdict;
+    out.pred_verdict = pred.retake ? "retake" : evaluate(order.items, pred).verdict;
     if (c.truth === "retake") {
       out.true_verdict = "retake";
       out.correct = pred.retake;

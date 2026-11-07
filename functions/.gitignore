@@ -1,0 +1,3 @@
+# Vision: local API key file and eval output (never commit these)
+vision.local.env
+vision-testset/results-*.json
