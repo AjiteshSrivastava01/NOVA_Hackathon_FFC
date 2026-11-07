@@ -25,8 +25,13 @@ async function chatJson({ model, messages, schema, name = "result", timeoutMs = 
           ...(structured && schema && { response_format: { type: "json_schema", json_schema: { name, strict: true, schema } } }),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${data.error?.message || JSON.stringify(data)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const raw = data.error?.metadata?.raw;
+        const detail = [data.error?.message, typeof raw === "string" ? raw.slice(0, 300) : raw && JSON.stringify(raw).slice(0, 300)]
+          .filter(Boolean).join(" | ") || JSON.stringify(data).slice(0, 300);
+        throw Object.assign(new Error(`OpenRouter ${res.status}: ${detail}`), { status: res.status });
+      }
       let text = data.choices?.[0]?.message?.content ?? "";
       if (Array.isArray(text)) text = text.map((p) => p.text ?? "").join("");
       const s = text.indexOf("{"), e = text.lastIndexOf("}");
@@ -39,8 +44,12 @@ async function chatJson({ model, messages, schema, name = "result", timeoutMs = 
   try {
     return await call(true);
   } catch (e) {
-    if (!/response_format|json_schema|structured/i.test(e.message)) throw e;
-    return call(false); // model without structured-output support: rely on the prompt
+    // Some providers (e.g. Gemini) reject parts of strict JSON schema with a 400:
+    // retry once relying on the prompt alone. Auth / credit / rate-limit errors are not retried.
+    const retry = /response_format|json_schema|structured|schema|additionalProperties|INVALID_ARGUMENT/i.test(e.message)
+      || (e.status >= 400 && e.status < 500 && ![401, 402, 403, 429].includes(e.status));
+    if (!schema || !retry) throw e;
+    return call(false);
   }
 }
 

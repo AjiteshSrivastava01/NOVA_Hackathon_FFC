@@ -88,8 +88,16 @@ async function understandOrder({ audio, audioFormat = "wav", text, model } = {})
        { type: "input_audio", input_audio: { data: audio.toString("base64"), format: audioFormat } }]
     : [{ type: "text", text: `Here is the typed order: ${text}` }];
   const t0 = Date.now();
-  const { json, cost } = await chatJson({ model: useModel, name: "order", schema: SCHEMA,
-    messages: [{ role: "system", content: SYSTEM }, { role: "user", content }] });
+  let json, cost;
+  try {
+    ({ json, cost } = await chatJson({ model: useModel, name: "order", schema: SCHEMA,
+      messages: [{ role: "system", content: SYSTEM }, { role: "user", content }] }));
+  } catch (e) {
+    console.error("voice model failed:", e.message);
+    if (!text) throw e; // audio needs the model
+    // Typed text still works with the simple parser.
+    return { ...(await parseOrder(text)), transcript: text, model: "keyword-parser", ai_error: e.message };
+  }
   return {
     transcript: String(json.transcript || text || "").trim(),
     customer_name: String(json.customer_name || "").trim().slice(0, 60) || "Guest",
