@@ -16,101 +16,96 @@
   header { background: var(--mahogany); color: var(--apricot); padding: 14px 16px; border-bottom: 4px solid var(--strawberry);
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
   header h1 { margin: 0; font-size: 1.3rem; }
-  header .meta { font-size: .85rem; }
+  header .meta { font-size: .82rem; display: flex; flex-wrap: wrap; gap: 6px; }
   header code { background: rgba(254,225,199,.15); padding: 2px 6px; border-radius: 4px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
   .card { background: var(--card); border: var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; min-width: 0; }
   .wide { grid-column: 1 / -1; }
   h2 { margin: 0 0 10px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
-  .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--mahogany); color: var(--apricot); font-size: .8rem; }
+  .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--mahogany); color: var(--apricot); font-size: .8rem; flex: none; }
   button, .btn { font: inherit; font-weight: 600; cursor: pointer; background: var(--card); color: var(--ink); border: var(--border);
-    border-radius: 8px; padding: 8px 12px; box-shadow: 2px 2px 0 var(--ink); }
-  button:active { transform: translate(2px, 2px); box-shadow: none; }
+    border-radius: 8px; padding: 8px 12px; box-shadow: 2px 2px 0 var(--ink); text-decoration: none; display: inline-block; }
+  button:active, .btn:active { transform: translate(2px, 2px); box-shadow: none; }
   button.primary { background: var(--mahogany); color: var(--apricot); }
   button.big { width: 100%; padding: 14px; font-size: 1.05rem; }
   button:disabled { opacity: .5; cursor: not-allowed; }
-  input, select { font: inherit; color: var(--ink); background: var(--card); border: var(--border); border-radius: 6px; padding: 6px 8px; }
-  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  input, textarea { font: inherit; color: var(--ink); background: var(--card); border: var(--border); border-radius: 6px; padding: 7px 9px; }
+  textarea { width: 100%; resize: vertical; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
   .hint { color: var(--muted); font-size: .85rem; }
-  .line { border: 2px dashed rgba(35,10,12,.35); border-radius: 8px; padding: 10px; margin: 8px 0; background: var(--cream); }
-  .line .top { display: grid; grid-template-columns: 1fr 64px auto; gap: 6px; }
-  .mods { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; font-size: .85rem; }
-  .mods select { padding: 2px 4px; font-size: .82rem; }
-  .preview { width: 100%; max-height: 340px; object-fit: contain; border: var(--border); border-radius: 8px; background: #000; display: block; }
-  .drop { border: 2px dashed var(--muted); border-radius: 8px; padding: 26px 12px; text-align: center; color: var(--muted); }
-  .verdict { display: inline-block; font-weight: 800; font-size: 1.3rem; padding: 6px 16px; border-radius: 99px; border: var(--border); text-transform: uppercase; }
-  .verdict.pass { background: var(--mahogany); color: var(--apricot); }
-  .verdict.fail { background: var(--strawberry); color: var(--ink); }
-  .verdict.needs_review { background: var(--coral); color: var(--ink); }
-  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 6px 0 14px; }
+  .preview { width: 100%; max-height: 320px; object-fit: contain; border: var(--border); border-radius: 8px; background: #000; display: block; margin: 8px 0; }
+  .drop { border: 2px dashed var(--muted); border-radius: 8px; padding: 30px 12px; text-align: center; color: var(--muted); margin: 8px 0; }
+  video { width: 100%; border-radius: 8px; border: var(--border); background: #000; }
+  .string { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 1.2rem; font-weight: 700;
+    background: var(--apricot); border: var(--border); border-radius: 10px; padding: 14px; word-break: break-word; min-height: 54px; }
+  .string.empty { color: var(--muted); font-weight: 500; font-size: 1rem; font-family: inherit; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 10px 0; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1.5px solid rgba(35,10,12,.15); }
   th { background: var(--apricot); }
-  td.ok { font-weight: 700; } td.bad { background: rgba(244,65,116,.2); font-weight: 800; }
-  .chip { display: inline-block; padding: 1px 8px; border-radius: 99px; border: 1.5px solid var(--ink); font-size: .8rem; font-weight: 700; }
-  .chip.present { background: var(--apricot); } .chip.absent { background: #e9e2df; } .chip.unknown { background: var(--coral); }
-  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-  .stat { border: var(--border); border-radius: 8px; padding: 6px 10px; font-size: .85rem; background: var(--cream); }
-  pre { white-space: pre-wrap; word-break: break-word; font-size: .78rem; background: var(--cream); border: 1.5px solid rgba(35,10,12,.2); border-radius: 6px; padding: 8px; max-height: 300px; overflow: auto; }
-  .history { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-  .h { border: var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--card); font-size: .78rem; }
-  .h img { width: 100%; height: 90px; object-fit: cover; display: block; }
-  .h div { padding: 4px 6px; }
-  .err { background: var(--strawberry); color: var(--ink); border: var(--border); border-radius: 8px; padding: 10px; font-weight: 600; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .stat { border: 1.5px solid var(--ink); border-radius: 8px; padding: 4px 9px; font-size: .82rem; background: var(--cream); }
+  .badge { display: inline-block; font-weight: 800; padding: 6px 14px; border-radius: 99px; border: var(--border); }
+  .badge.ok { background: var(--mahogany); color: var(--apricot); }
+  .badge.bad { background: var(--strawberry); color: var(--ink); }
+  .err { background: var(--strawberry); color: var(--ink); border: var(--border); border-radius: 8px; padding: 10px; font-weight: 600; margin: 8px 0; }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: .78rem; background: var(--cream); border: 1.5px solid rgba(35,10,12,.2); border-radius: 6px; padding: 8px; max-height: 280px; overflow: auto; }
+  .history { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .h { border: var(--border); border-radius: 8px; overflow: hidden; background: var(--card); font-size: .8rem; }
+  .h img { width: 100%; height: 100px; object-fit: cover; display: block; background: #000; }
+  .h div { padding: 6px; }
   .spinner { display: inline-block; width: 16px; height: 16px; border: 3px solid var(--apricot); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .resgrid { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
-  @media (max-width: 640px) { .resgrid { grid-template-columns: 1fr; } .resgrid img { order: -1; max-height: 240px; } }
-  video { width: 100%; border-radius: 8px; border: var(--border); background: #000; }
+  ul.diff { margin: 6px 0; padding-left: 20px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔬 Vision Lab</h1>
+  <h1>🔬 Vision Lab · photo → order string</h1>
   <div class="meta" id="hdr">loading…</div>
 </header>
 
 <main>
   <section class="card">
-    <h2><span class="n">1</span> The order (ticket)</h2>
+    <h2><span class="n">1</span> Photo of the meal</h2>
     <div class="row">
-      <button type="button" data-preset="nolettuce">Burger, no lettuce</button>
-      <button type="button" data-preset="two">2 burgers + fries</button>
-      <button type="button" data-preset="chicken">Chicken sandwich + soda</button>
-    </div>
-    <div id="lines"></div>
-    <button type="button" id="add">+ Add dish</button>
-  </section>
-
-  <section class="card">
-    <h2><span class="n">2</span> Photo of the meal</h2>
-    <div class="row">
-      <label class="btn">📷 Take / choose photo<input type="file" id="file" accept="image/*" capture="environment" hidden></label>
-      <button type="button" id="webcam">💻 Use webcam</button>
+      <label class="btn">📷 Take / upload photo<input type="file" id="file" accept="image/*" capture="environment" hidden></label>
+      <button type="button" id="webcam">💻 Webcam</button>
     </div>
     <div id="cam" hidden>
       <video id="video" autoplay playsinline muted></video>
       <div class="row"><button type="button" class="primary" id="snap">Capture</button><button type="button" id="camclose">Close</button></div>
     </div>
     <img id="preview" class="preview" alt="meal photo" hidden>
-    <div id="nophoto" class="drop">No photo yet. On a phone, "Take / choose photo" opens the camera.</div>
-
-    <h2 style="margin-top:16px"><span class="n">3</span> Run</h2>
+    <div id="nophoto" class="drop">No photo yet.</div>
     <div class="row">
-      <label>Model <input id="model" list="models" size="30" placeholder="provider/model"></label>
+      <label class="hint">Model <input id="model" list="models" size="26" placeholder="provider/model"></label>
       <datalist id="models">
-        <option value="google/gemini-3.8-flash"><option value="anthropic/claude-haiku-5.5">
-        <option value="anthropic/claude-sonnet-5.5"><option value="google/gemini-3.1-flash-lite">
+        <option value="google/gemini-3.8-flash"><option value="anthropic/claude-haiku-5.5"><option value="anthropic/claude-sonnet-5.5">
       </datalist>
     </div>
-    <div class="row" id="pwrow" hidden><label>Lab password <input id="pw" type="password" autocomplete="current-password"></label></div>
-    <button type="button" class="primary big" id="go" disabled>Inspect meal against ticket</button>
+    <div class="row" id="pwrow" hidden><label class="hint">Lab password <input id="pw" type="password" autocomplete="current-password"></label></div>
+    <button type="button" class="primary big" id="go" disabled>Convert photo to order string</button>
   </section>
 
-  <section class="card wide" id="result" hidden></section>
+  <section class="card">
+    <h2><span class="n">2</span> What the camera saw</h2>
+    <div id="out-string" class="string empty">The string appears here, in the same format as the voice app, e.g. <code>2× Burger (no lettuce), Fries</code></div>
+    <div class="row"><button type="button" id="copy" disabled>Copy string</button></div>
+    <div id="out-detail"></div>
+  </section>
 
   <section class="card wide">
-    <h2>History <span class="hint">(this session only)</span></h2>
+    <h2><span class="n">3</span> Check against the voice order</h2>
+    <p class="hint">Paste what the voice app produced, e.g. <code>2× Burger (no lettuce), Fries for table 12</code>. Wording such as "without/no" and "extra/add" is treated as the same.</p>
+    <textarea id="voice" rows="2" placeholder="2× Burger (no lettuce), Fries for table 12"></textarea>
+    <div class="row"><button type="button" class="primary" id="compare" disabled>Compare</button><span id="cmp-hint" class="hint">Convert a photo first.</span></div>
+    <div id="cmp"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Recent results</h2>
+    <p class="hint" id="storage-note"></p>
     <div id="history" class="history"><span class="hint">Nothing yet.</span></div>
   </section>
 </main>
@@ -118,49 +113,9 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-let MENU = {}, photo = null, stream = null, defaultModel = "";
-const history = [];
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
                 set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
-
-// ---------- order builder ----------
-function addLine(line = { menu_id: "burger", qty: 1, modifiers: {} }) {
-  const d = document.createElement("div");
-  d.className = "line";
-  d.innerHTML = `<div class="top">
-      <select class="dish">${Object.entries(MENU).map(([id, m]) => `<option value="${id}" ${id === line.menu_id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
-      <input class="qty" type="number" min="1" max="10" value="${line.qty}" aria-label="quantity">
-      <button type="button" class="rm" aria-label="remove">✕</button>
-    </div><div class="mods"></div>`;
-  const renderMods = (mods = {}) => {
-    const comps = MENU[d.querySelector(".dish").value].components;
-    d.querySelector(".mods").innerHTML = Object.entries(comps).filter(([, c]) => c.removable).map(([cid, c]) => `
-      <label>${esc(c.name)} <select data-c="${cid}">
-        <option value="">${c.default ? "yes (std)" : "no (std)"}</option>
-        <option value="${c.default ? "no" : "add"}" ${mods[cid] ? "selected" : ""}>${c.default ? "NO" : "ADD"}</option>
-      </select></label>`).join("") || `<span class="hint">no options</span>`;
-  };
-  d.querySelector(".dish").onchange = () => renderMods();
-  d.querySelector(".rm").onclick = () => d.remove();
-  renderMods(line.modifiers);
-  $("#lines").appendChild(d);
-}
-function readOrder() {
-  return [...document.querySelectorAll("#lines .line")].map((d) => ({
-    menu_id: d.querySelector(".dish").value,
-    qty: +d.querySelector(".qty").value || 1,
-    modifiers: Object.fromEntries([...d.querySelectorAll("[data-c]")].filter((s) => s.value).map((s) => [s.dataset.c, s.value])),
-  }));
-}
-const PRESETS = {
-  nolettuce: [{ menu_id: "burger", qty: 1, modifiers: { lettuce: "no" } }],
-  two: [{ menu_id: "burger", qty: 2, modifiers: {} }, { menu_id: "fries", qty: 1, modifiers: {} }],
-  chicken: [{ menu_id: "chicken_sandwich", qty: 1, modifiers: {} }, { menu_id: "soda", qty: 1, modifiers: {} }],
-};
-document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => {
-  $("#lines").innerHTML = ""; PRESETS[b.dataset.preset].forEach(addLine);
-}));
-$("#add").onclick = () => addLine();
+let photo = null, stream = null, last = null;
 
 // ---------- photo ----------
 async function downscale(blob, max = 1280) {
@@ -181,7 +136,7 @@ $("#webcam").onclick = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     $("#video").srcObject = stream; $("#cam").hidden = false;
-  } catch (e) { showError("Camera not available: " + e.message); }
+  } catch (e) { showError("Camera not available here (" + e.message + "). Use Take / upload photo."); }
 };
 const closeCam = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; $("#cam").hidden = true; };
 $("#camclose").onclick = closeCam;
@@ -194,109 +149,88 @@ $("#snap").onclick = async () => {
   closeCam();
 };
 
-// ---------- run ----------
-function showError(msg) {
-  const r = $("#result"); r.hidden = false;
-  r.innerHTML = `<div class="err">⚠ ${esc(msg)}</div>`;
+// ---------- describe ----------
+function showError(msg) { $("#out-detail").innerHTML = `<div class="err">⚠ ${esc(msg)}</div>`; }
+async function post(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-lab-password": $("#pw").value }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 $("#go").onclick = async () => {
-  const items = readOrder();
-  if (!items.length) return showError("Add at least one dish to the order.");
   const btn = $("#go"); btn.disabled = true;
   const t0 = performance.now();
   const tick = setInterval(() => (btn.innerHTML = `<span class="spinner"></span> Looking… ${((performance.now() - t0) / 1000).toFixed(1)}s`), 100);
   store.set("lab-pw", $("#pw").value); store.set("lab-model", $("#model").value);
   try {
-    const res = await fetch("/api/inspect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-lab-password": $("#pw").value },
-      body: JSON.stringify({ order: { items }, photo, model: $("#model").value.trim() || undefined }),
-    });
-    const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    const entry = { ...data, items, photo, at: new Date() };
-    history.unshift(entry);
-    render(entry); renderHistory();
+    last = await post("/api/vision/describe", { photo, model: $("#model").value.trim() || undefined });
+    renderResult(last);
+    loadHistory();
   } catch (e) { showError(e.message); }
-  finally { clearInterval(tick); btn.disabled = false; btn.textContent = "Inspect meal against ticket"; }
+  finally { clearInterval(tick); btn.disabled = false; btn.textContent = "Convert photo to order string"; }
 };
 
-function render(e) {
-  const o = e.observations;
-  // Pair expected units with observed units of the same dish, in order (display only;
-  // the verdict above comes from matching.js which pairs them optimally).
-  const pool = {};
-  for (const it of o.items || []) (pool[it.menu_id] ||= []).push(it);
-  const counter = {};
-  const tables = e.expected.map((u) => {
-    const seen = (pool[u.menu_id] || []).shift();
-    const n = (counter[u.menu_id] = (counter[u.menu_id] || 0) + 1);
-    const rows = Object.entries(u.expected).map(([cid, want]) => {
-      const got = seen?.components?.[cid] ?? "not seen";
-      const ok = (want && got === "present") || (!want && got === "absent");
-      return `<tr><td>${esc(MENU[u.menu_id].components[cid].name)}</td>
-        <td><span class="chip ${want ? "present" : "absent"}">${want ? "present" : "absent"}</span></td>
-        <td class="${ok ? "ok" : "bad"}"><span class="chip ${esc(got)}">${esc(got)}</span> ${ok ? "✓" : "✗"}</td></tr>`;
-    }).join("");
-    return `<h3>${esc(MENU[u.menu_id].name)}${counter[u.menu_id] > 1 || e.expected.filter((x) => x.menu_id === u.menu_id).length > 1 ? ` #${n}` : ""}${seen ? "" : ' <span class="chip unknown">not found in photo</span>'}</h3>
-      <table><thead><tr><th>Ingredient</th><th>Ticket wants</th><th>Model saw</th></tr></thead><tbody>${rows}</tbody></table>`;
-  }).join("");
-  const extra = Object.values(pool).flat();
-  const label = {
-    photo: "NAME-THIS.jpg",
-    ticket: e.items,
-    truth: (o.retake ? [] : o.items).map((it) => ({ menu_id: it.menu_id, components: it.components })),
-  };
-  const r = $("#result"); r.hidden = false;
-  r.innerHTML = `
-    <div class="row" style="justify-content:space-between">
-      <span class="verdict ${e.verdict}">${{ pass: "✓ pass", fail: "✕ fail", needs_review: "? retake / review" }[e.verdict]}</span>
-      <span class="hint">${e.at.toLocaleTimeString()}</span>
-    </div>
-    <ul>${e.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-    ${o.retake ? `<div class="err">Retake: ${esc(o.retake_reason)}</div>` : ""}
+function renderResult(r) {
+  const s = $("#out-string");
+  s.className = "string" + (r.summary ? "" : " empty");
+  s.textContent = r.summary || (r.ok ? "(nothing from the menu seen)" : "Please retake the photo");
+  $("#copy").disabled = !r.summary;
+  $("#compare").disabled = false; $("#cmp-hint").textContent = "";
+  $("#out-detail").innerHTML = `
+    ${r.ok ? "" : `<div class="err">Retake: ${esc(r.retake_reason)}</div>`}
+    ${r.items.length ? `<table><thead><tr><th>name</th><th>quantity</th><th>notes</th></tr></thead><tbody>
+      ${r.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.quantity}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</tbody></table>` : ""}
     <div class="stats">
-      <span class="stat">Model: <b>${esc(o.model)}</b></span>
-      <span class="stat">Model time: <b>${o.latency_ms != null ? (o.latency_ms / 1000).toFixed(1) + "s" : "–"}</b></span>
-      <span class="stat">Cost: <b>${o.cost_usd != null ? "$" + Number(o.cost_usd).toFixed(4) : "–"}</b></span>
-      <span class="stat">Confidence: <b>${o.raw?.confidence ?? o.confidence ?? "–"}</b></span>
+      <span class="stat">Model <b>${esc(r.model)}</b></span>
+      <span class="stat">Time <b>${r.latency_ms != null ? (r.latency_ms / 1000).toFixed(1) + "s" : "–"}</b></span>
+      <span class="stat">Cost <b>${r.cost_usd != null ? "$" + Number(r.cost_usd).toFixed(4) : "–"}</b></span>
     </div>
-    ${o.notes ? `<p class="hint">Model notes: ${esc(o.notes)}</p>` : ""}
-    <div class="resgrid">
-      <div>${tables}${extra.length ? `<h3>Extra items the model saw (not on ticket)</h3><p>${extra.map((x) => esc(MENU[x.menu_id]?.name || x.menu_id)).join(", ")}</p>` : ""}</div>
-      <img src="${e.photo}" class="preview" alt="inspected photo">
-    </div>
-    <details><summary>Raw model output (JSON)</summary><pre>${esc(JSON.stringify(o, null, 2))}</pre></details>
-    <details><summary>Save as a test case for vision-testset</summary>
-      <p class="hint">1) Download the photo into <code>functions/vision-testset/</code>. 2) Copy this into <code>labels.json</code>, rename the photo,
-      and <b>fix the truth</b> wherever the model was wrong.</p>
-      <div class="row"><a class="btn" download="vision-test.jpg" href="${e.photo}">⬇ Download photo</a>
-      <button type="button" id="copylabel">Copy label JSON</button></div>
-      <pre id="labeljson">${esc(JSON.stringify(label, null, 2))}</pre>
-    </details>`;
-  $("#copylabel").onclick = async () => {
-    try { await navigator.clipboard.writeText($("#labeljson").textContent); $("#copylabel").textContent = "Copied ✓"; }
-    catch { $("#copylabel").textContent = "Select the text and copy"; }
-  };
-  r.scrollIntoView({ behavior: "smooth", block: "start" });
+    ${r.observations?.notes ? `<p class="hint">Model notes: ${esc(r.observations.notes)}</p>` : ""}
+    <details><summary>JSON returned by <code>POST /api/vision/describe</code></summary>
+      <pre>${esc(JSON.stringify({ ok: r.ok, summary: r.summary, items: r.items, retake_reason: r.retake_reason, model: r.model, latency_ms: r.latency_ms, cost_usd: r.cost_usd, id: r.id, photo_url: r.photo_url }, null, 2))}</pre></details>
+    <details><summary>Per-ingredient model output (present / absent)</summary><pre>${esc(JSON.stringify(r.observations?.items, null, 2))}</pre></details>`;
+  $("#cmp").innerHTML = "";
 }
+$("#copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("#out-string").textContent); $("#copy").textContent = "Copied ✓"; }
+  catch { $("#copy").textContent = "Select and copy manually"; }
+  setTimeout(() => ($("#copy").textContent = "Copy string"), 1500);
+};
 
-function renderHistory() {
-  $("#history").innerHTML = history.map((h, i) => `
-    <div class="h" data-i="${i}"><img src="${h.photo}" alt="">
-      <div><span class="chip ${h.verdict === "pass" ? "present" : h.verdict === "fail" ? "unknown" : "absent"}">${h.verdict}</span><br>${esc(h.observations.model)}<br>${h.at.toLocaleTimeString()}</div></div>`).join("");
+// ---------- compare ----------
+$("#compare").onclick = async () => {
+  if (!last) return;
+  const voice = $("#voice").value.trim();
+  if (!voice) { $("#cmp").innerHTML = `<div class="err">Paste the voice order first.</div>`; return; }
+  try {
+    const r = await post("/api/vision/compare", { ordered: voice, seen: last.items });
+    $("#cmp").innerHTML = r.match
+      ? `<p><span class="badge ok">✓ MATCH</span> The meal matches the order.</p>`
+      : `<p><span class="badge bad">✕ MISMATCH</span></p>
+         ${r.missing.length ? `<b>Ordered but not seen:</b><ul class="diff">${r.missing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+         ${r.extra.length ? `<b>Seen but not ordered:</b><ul class="diff">${r.extra.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+  } catch (e) { $("#cmp").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+};
+
+// ---------- history ----------
+async function loadHistory() {
+  const list = await (await fetch("/api/vision/results")).json();
+  $("#history").innerHTML = list.length ? list.map((h) => `
+    <div class="h"><img src="${esc(h.photo_url)}" alt="" loading="lazy">
+      <div><b>${esc(h.summary || (h.ok ? "(nothing seen)" : "retake"))}</b><br>
+      <span class="hint">${esc(h.model)} · ${new Date(h.created_at).toLocaleTimeString()}</span></div></div>`).join("")
+    : `<span class="hint">Nothing yet.</span>`;
 }
-$("#history").onclick = (ev) => { const h = ev.target.closest("[data-i]"); if (h) render(history[+h.dataset.i]); };
 
 // ---------- boot ----------
 (async () => {
   const cfg = await (await fetch("/api/config")).json();
-  MENU = cfg.menu; defaultModel = cfg.model;
-  $("#hdr").innerHTML = `Default model <code>${esc(cfg.model)}</code> · key ${cfg.key_set ? "✓ set" : '<b style="color:var(--strawberry)">MISSING</b>'}`;
+  $("#hdr").innerHTML = `<span>model <code>${esc(cfg.model)}</code></span><span>key ${cfg.key_set ? "✓" : "<b>MISSING</b>"}</span><span>storage <code>${esc(cfg.storage)}</code></span>`;
+  $("#storage-note").textContent = `Stored in: ${cfg.storage}. Placeholder results disappear when the server restarts. See vision-lab/firebase.js.`;
   $("#model").value = store.get("lab-model") || cfg.model;
   $("#pwrow").hidden = !cfg.password_required;
   $("#pw").value = store.get("lab-pw") || "";
-  PRESETS.nolettuce.forEach(addLine);
+  loadHistory();
 })();
 </script>
 </body>

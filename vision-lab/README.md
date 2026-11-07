@@ -1,8 +1,14 @@
-# Vision Lab
+# Vision Lab: photo → order string
 
-A standalone page for testing the vision model. Build an order, take a photo, and see whether the meal matches the ticket, ingredient by ingredient.
+Upload or take a photo of a meal. The vision model turns it into an order string in **the same format the voice app produces**:
 
-It runs the same code as the real app (`functions/src/vision.js`, `matching.js` and `menu.js`). It only reads those files and changes nothing else. It doesn't need `npm install`.
+| | Voice app | Vision (this) |
+|---|---|---|
+| Input | speech | photo |
+| String | `2× Burger (no lettuce), Fries for table 12` | `2× Burger (no lettuce), Fries` |
+| Items | `[{name, quantity, notes}]` | `[{name, quantity, notes}]`, same shape |
+
+Comparing the two tells you whether the meal matches the order. It doesn't need `npm install`.
 
 ## Run on your laptop
 
@@ -16,27 +22,54 @@ cd vision-lab
 node server.js
 ```
 
-Open http://localhost:8090.
+Open http://localhost:8090. The key is read from `functions/vision.local.env`.
 
-- The key is read from `functions/vision.local.env`, the same file the backend uses.
-- To test with your **phone camera** on the same Wi-Fi, open `http://<your-laptop-IP>:8090` on the phone. On a Mac, find the IP under System Settings → Wi-Fi → Details.
-- On a phone, use **Take / choose photo**. The **Use webcam** button only works on `localhost` or HTTPS.
+To use your phone camera, open `http://<laptop-IP>:8090` on a phone on the same Wi-Fi, then tap **Take / upload photo**.
+
+## API (for integration)
+
+```
+POST /api/vision/describe   { "photo": "data:image/jpeg;base64,...", "model"?: "provider/model" }
+  -> { "ok": true,
+       "summary": "2× Burger (no lettuce), Fries",
+       "items": [{ "name": "Burger", "quantity": 2, "notes": "no lettuce" }, { "name": "Fries", "quantity": 1 }],
+       "retake_reason": null, "model": "...", "latency_ms": 2310, "cost_usd": 0.004,
+       "id": "...", "photo_url": "/photos/..." }
+     "ok": false + "retake_reason" means the photo was unclear. Ask for a retake.
+
+POST /api/vision/compare    { "ordered": "<voice summary string or items>", "seen": "<string or items>" }
+  -> { "match": false, "missing": ["soda"], "extra": [] }
+
+GET  /api/vision/results    recent results
+```
+
+The same logic is available inside the backend as plain functions:
+- `functions/src/vision.js` → `describePhoto(buffer, contentType)`
+- `functions/src/vision-string.js` → `toOrderItems`, `formatSummary`, `parseSummary`, `compareOrders`
+
+### String format
+
+Vision generates notes from the menu (`functions/src/menu.js`):
+- A standard ingredient that's missing becomes `no <ingredient>`.
+- An optional ingredient that's present becomes `add <ingredient>`.
+
+`compareOrders` treats `without`/`hold the` like `no`, and `extra`/`with` like `add`. It ignores plurals, and it maps `Coke` to `Soda` and `Salad` to `Side Salad`. Dish names must be menu names, so the voice prompt should use the same names.
+
+## Firebase (not set up yet)
+
+Results are stored **in memory** for now. Every spot that changes when Firebase is ready is marked `FIREBASE TODO` in `vision-lab/firebase.js`, which also documents the Firestore document shape (`vision_results` collection).
+
+When Firebase is ready:
+1. Run `npm install firebase-admin` inside `vision-lab`.
+2. Fill in `FIREBASE_CONFIG`.
+3. Uncomment the `FIREBASE TODO` blocks.
+4. Set `USE_FIREBASE=true`.
 
 ## Host it (e.g. Render, free)
 
-1. Go to https://render.com, click **New → Web Service**, and connect this GitHub repo.
-2. Use these settings:
-   - **Root directory:** leave empty. The lab needs the `functions/` folder too.
-   - **Build command:** leave empty.
-   - **Start command:** `node vision-lab/server.js`
-3. Add **Environment** variables:
-   - `OPENROUTER_API_KEY` = your key
-   - `LAB_PASSWORD` = any password. **Always set this when hosting**, or anyone who finds the URL can spend your credit.
-   - `OPENROUTER_VISION_MODEL` (optional) = a model ID to override the team default.
-4. Deploy, open the URL, and enter the password on the page.
-
-## Using the results
-
-- The **Model saw** column highlights the exact ingredient the model got wrong.
-- The page shows model time, cost and confidence for each run, so you can compare models by changing the **Model** field.
-- **Save as a test case:** download the photo into `functions/vision-testset/`, copy the label JSON into `labels.json`, and fix the truth wherever the model was wrong. That builds your test set for `node functions/scripts/eval-vision.js`.
+Create a **New Web Service** from this repo, with:
+- **Start command:** `node vision-lab/server.js`
+- **Environment variables:**
+  - `OPENROUTER_API_KEY`
+  - `LAB_PASSWORD`. **Always set this**, or anyone with the URL can spend your credit.
+  - `OPENROUTER_VISION_MODEL` (optional)

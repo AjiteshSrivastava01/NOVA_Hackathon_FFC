@@ -26,6 +26,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { MENU, expectedComponents } = require("./menu");
+const { toOrderItems, formatSummary } = require("./vision-string");
 
 // Local secrets file (never committed). Real environment variables win.
 const LOCAL_ENV = path.join(__dirname, "..", "vision.local.env");
@@ -120,18 +121,20 @@ const SCHEMA = {
 };
 
 function buildMessages(photoDataUrl, order) {
-  // The ticket tells the model WHICH dishes/components to look for. We deliberately
+  // With an order: the ticket tells the model WHICH dishes to look for. We deliberately
   // don't say which modifiers were requested, so it can't just echo the ticket.
-  const ticketIds = [...new Set(order.items.map((l) => l.menu_id))];
+  // Without an order (describe mode): the model identifies everything on its own.
   const catalogIds = Object.keys(MENU); // full catalog: lets it report an unexpected dish
+  const refIds = order ? [...new Set(order.items.map((l) => l.menu_id))] : catalogIds;
   const content = [{
     type: "text",
-    text: `Menu catalog:\n${menuCatalog(catalogIds)}\n\n` +
-      `Dishes expected on this tray (check carefully, but report what you actually see): ` +
-      order.items.map((l) => `${l.qty}x ${l.menu_id}`).join(", ") + ".",
+    text: `Menu catalog:\n${menuCatalog(catalogIds)}\n\n` + (order
+      ? `Dishes expected on this tray (check carefully, but report what you actually see): ` +
+        order.items.map((l) => `${l.qty}x ${l.menu_id}`).join(", ") + "."
+      : "Identify every menu dish in the photo, with every component of each."),
   }];
-  for (const id of ticketIds) {
-    for (const ref of REFS[id] || []) {
+  for (const id of refIds) {
+    for (const ref of (REFS[id] || []).slice(0, order ? 3 : 1)) { // describe mode: 1 ref per dish keeps it cheap
       content.push({ type: "text", text: `Reference photo - ${MENU[id].name}: ${ref.caption}` });
       content.push({ type: "image_url", image_url: { url: ref.dataUrl } });
     }
@@ -230,7 +233,7 @@ function normalize(raw) {
  */
 function retakeObservations(order, reason, extra = {}) {
   const items = [];
-  for (const line of order.items) {
+  for (const line of order ? order.items : []) {
     for (let i = 0; i < (line.qty || 1); i++) {
       items.push({
         menu_id: line.menu_id,
@@ -265,4 +268,29 @@ async function analyze(photoBuffer, contentType, order, { model, throwOnError = 
   return { ...result.obs, ...meta };
 }
 
-module.exports = { analyze, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT, DEFAULT_MODEL };
+/**
+ * Photo -> order string, like voice turns speech into a string. No ticket needed.
+ * Returns {
+ *   ok, summary: "2× Burger (no lettuce), Fries",          // same format as the voice app
+ *   items: [{ name, quantity, notes }],                      // same shape as the voice app
+ *   retake, retake_reason, model, latency_ms, cost_usd, observations
+ * } or null if no API key is configured.
+ */
+async function describePhoto(photoBuffer, contentType, { model, throwOnError = false } = {}) {
+  const observations = await analyze(photoBuffer, contentType, null, { model, throwOnError });
+  if (!observations) return null;
+  const items = toOrderItems(observations);
+  return {
+    ok: !observations.retake,
+    summary: formatSummary(items),
+    items,
+    retake: !!observations.retake,
+    retake_reason: observations.retake_reason || null,
+    model: observations.model,
+    latency_ms: observations.latency_ms ?? null,
+    cost_usd: observations.cost_usd ?? null,
+    observations,
+  };
+}
+
+module.exports = { analyze, describePhoto, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT, DEFAULT_MODEL };
