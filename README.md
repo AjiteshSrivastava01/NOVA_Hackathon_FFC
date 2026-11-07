@@ -10,7 +10,7 @@ Voice will replace manual ticket entry, and vision will replace the sample inspe
 ## Run it
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ```bash
@@ -21,6 +21,36 @@ Open http://localhost:8000. Interactive API docs are at http://localhost:8000/do
 Run the tests with `python -m pytest -q`. To reset all data, use **Reset demo** in the UI or delete `data/ffc.db`.
 
 > Camera and microphone access in the browser require `localhost` or HTTPS. To test from a phone, use a tunnel such as `ngrok http 8000`.
+
+## Deploy (Firebase Hosting + Cloud Run)
+
+Firebase Hosting serves `frontend/`. Requests to `/api/**` and `/photos/**` are forwarded to the Python backend on Cloud Run (see `firebase.json`). The Firebase project must be on the **Blaze** (pay-as-you-go) plan; hackathon usage stays within the free tier.
+
+One-time setup:
+
+```bash
+npm install -g firebase-tools
+```
+
+```bash
+firebase login
+```
+
+```bash
+gcloud auth login
+```
+
+Put your project ID in `.firebaserc`. Then deploy the backend first, followed by Hosting:
+
+```bash
+gcloud run deploy ffc-kitchen --source . --region us-central1 --allow-unauthenticated --min-instances 1 --max-instances 1 --project YOUR-FIREBASE-PROJECT-ID
+```
+
+```bash
+firebase deploy --only hosting
+```
+
+> **Data is not permanent on Cloud Run.** SQLite and photos live inside the single running instance. `--max-instances 1` keeps every screen on the same data, and `--min-instances 1` stops the instance from shutting down (and wiping data) when idle. Redeploying the backend still resets the data. After the hackathon, run `gcloud run services update ffc-kitchen --min-instances 0 --region us-central1` to stop paying for idle time. Moving storage to Firestore and Cloud Storage would make the data permanent.
 
 ## Integration contract
 

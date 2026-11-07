@@ -16,7 +16,6 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -363,11 +362,8 @@ async def voice_transcribe(request: Request):
 
 
 # ---------- static ----------
+# Same layout Firebase Hosting uses (public dir = frontend/), so the dashboard
+# works identically locally and when deployed. Must be mounted LAST.
 
 app.mount("/photos", StaticFiles(directory=PHOTO_DIR, check_dir=False), name="photos")
-app.mount("/static", StaticFiles(directory=FRONTEND), name="static")
-
-
-@app.get("/")
-def index():
-    return FileResponse(os.path.join(FRONTEND, "index.html"))
+app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
