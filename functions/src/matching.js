@@ -83,6 +83,9 @@ function bestAssignment(exp, obs) {
 
 /** Compare observations against one order. Returns {verdict, reasons}. */
 function evaluate(orderItems, observations) {
+  if (observations && observations.retake) {
+    return { verdict: REVIEW, reasons: [`Please retake the photo: ${observations.retake_reason || "image unclear"}.`] };
+  }
   const expected = expandOrder(orderItems);
   const observed = (observations && observations.items) || [];
   const reasons = [];
