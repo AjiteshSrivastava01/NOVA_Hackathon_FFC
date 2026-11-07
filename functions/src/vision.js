@@ -33,7 +33,7 @@ if (fs.existsSync(LOCAL_ENV)) process.loadEnvFile(LOCAL_ENV);
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const REFS_DIR = path.join(__dirname, "..", "vision-refs");
-const DEFAULT_MODEL = "google/gemini-2.5-flash"; // placeholder: pick yours from the eval
+const DEFAULT_MODEL = "google/gemini-3.8-flash"; // team default; override per person with OPENROUTER_VISION_MODEL
 
 // ---------- reference photos (loaded once) ----------
 function loadRefs() {
