@@ -45,12 +45,6 @@ function createFirestoreStore() {
       }));
     },
 
-    async reset() {
-      for (const c of ["orders", "inspections", "events", "counters", "cubbies"]) {
-        await db.recursiveDelete(db.collection(c));
-      }
-      await bucket().deleteFiles({ prefix: "photos/" }).catch(() => {});
-    },
 
     async savePhoto(name, buffer, contentType) {
       await bucket().file(`photos/${name}`).save(buffer, { contentType, resumable: false });

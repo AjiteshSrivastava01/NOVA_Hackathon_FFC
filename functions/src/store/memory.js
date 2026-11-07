@@ -41,7 +41,6 @@ function createMemoryStore() {
       return run;
     },
 
-    async reset() { cols = {}; photos = new Map(); },
     async savePhoto(name, buffer, contentType) { photos.set(name, { buffer, contentType }); },
     async readPhoto(name) { return photos.get(name) || null; },
   };

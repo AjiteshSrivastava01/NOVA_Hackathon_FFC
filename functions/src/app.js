@@ -284,7 +284,7 @@ function createApp(store) {
     return fullOrder(orderId);
   }));
 
-  // ---------- cubbies / events / reset ----------
+  // ---------- cubbies / events ----------
   app.get("/api/cubbies", route(async () => {
     const [cubbies, orders] = await Promise.all([store.list("cubbies", { orderBy: "id" }), store.list("orders")]);
     const byId = new Map(orders.map((o) => [o.id, o]));
@@ -294,13 +294,7 @@ function createApp(store) {
   app.get("/api/events", route(async (req) =>
     store.list("events", { orderBy: "created_at", desc: true, limit: Math.min(+req.query.limit || 30, 200) })));
 
-  // Wipe everything (demo convenience).
-  app.post("/api/reset", route(async () => {
-    await store.reset();
-    cubbiesReady = null;
-    await ensureCubbies();
-    return { ok: true };
-  }));
+
 
   // ---------- voice (stub hooks for the voice team) ----------
   // Transcript -> draft order. The dashboard shows it for confirmation before POST /api/orders.
