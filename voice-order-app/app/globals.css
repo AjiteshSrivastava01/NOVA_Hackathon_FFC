@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c1b19;
+  --muted: #6b675f;
+  --line: #d9d4c8;
+  --signal: #1f5c4a;
+  --alert: #a3341f;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

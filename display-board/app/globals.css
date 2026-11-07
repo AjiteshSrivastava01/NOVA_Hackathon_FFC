@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@theme {
+  --color-graphite: #3c3744;
+  --color-graphite-soft: #5b5563;
+  --color-graphite-deep: #2b2731;
+  --color-navy: #090c9b;
+  --color-navy-dark: #060872;
+  --color-apricot: #fee1c7;
+  --color-apricot-light: #fff3e8;
+  --color-coral: #fa7e61;
+  --color-strawberry: #f44174;
+  /* Pass/verified green: --verified on light backgrounds, --verified-bright on Graphite. */
+  --color-verified: #13915a;
+  --color-verified-light: #d9f5e6;
+  --color-verified-bright: #42d392;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--color-apricot);
+  color: var(--color-graphite);
+}
+
+/* ---------- Split-flap text (display board) ---------- */
+
+.flap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  perspective: 600px;
+}
+
+.flap-char {
+  position: relative;
+  display: inline-block;
+  min-width: 0.66em;
+  margin: 0 0.04em;
+  padding: 0.04em 0.06em;
+  border-radius: 0.12em;
+  background: rgba(0, 0, 0, 0.28);
+  text-align: center;
+  transform-origin: 50% 50%;
+  animation: flap 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  animation-delay: calc(var(--i) * 28ms);
+}
+
+.flap-char::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0.04em;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.flap-space {
+  display: inline-block;
+  width: 0.4em;
+}
+
+@keyframes flap {
+  0% {
+    transform: rotateX(90deg);
+    filter: brightness(2);
+  }
+  55% {
+    transform: rotateX(-18deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+}
+
+/* ---------- Board rows ---------- */
+
+.row-flash {
+  animation: row-flash 1.6s ease-out;
+}
+
+@keyframes row-flash {
+  0%,
+  40% {
+    background-color: rgba(66, 211, 146, 0.55);
+    box-shadow: 0 0 0 4px rgba(66, 211, 146, 0.9) inset;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(66, 211, 146, 0) inset;
+  }
+}
+
+.row-fade {
+  transition: opacity 1.5s ease;
+  opacity: 0;
+}
+
+.status-pulse {
+  animation: status-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flap-char,
+  .row-flash,
+  .status-pulse,
+  .pop-in {
+    animation: none;
+  }
+}

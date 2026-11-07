@@ -26,22 +26,35 @@ test("no API key -> null (dashboard falls back to samples)", async () => {
   assert.equal(await vision.analyze(Buffer.from("x"), "image/jpeg", order), null);
 });
 
-test("parses model JSON, fills missing components as unknown, drops invented dishes", async () => {
+test("parses present/absent answers and drops invented dishes", async () => {
   process.env.OPENROUTER_API_KEY = "test";
+  const comps = { bun: "present", patty: "present", lettuce: "present", tomato: "present", cheese: "present", onion: "absent", pickles: "absent" };
   fakeModel("```json\n" + JSON.stringify({
     photo_quality: "good", confidence: 0.9, notes: "",
     items: [
-      { menu_id: "burger", components: [{ component: "lettuce", state: "present" }, { component: "bun", state: "present" }] },
+      { menu_id: "burger", components: Object.entries(comps).map(([component, state]) => ({ component, state })) },
       { menu_id: "pizza", components: [] },
     ],
   }) + "\n```");
   const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);
   assert.equal(obs.items.length, 1);
-  assert.equal(obs.items[0].components.lettuce, "present");
-  assert.equal(obs.items[0].components.cheese, "unknown");
+  assert.deepEqual(obs.items[0].components, comps);
   assert.equal(obs.retake, false);
+  assert.ok(!Object.values(obs.items[0].components).includes("unknown"));
   // lettuce present on a no-lettuce ticket -> fail
   assert.equal(evaluate(order.items, obs).verdict, "fail");
+});
+
+test("model skips a component or says 'unknown' -> retake, never a silent guess", async () => {
+  process.env.OPENROUTER_API_KEY = "test";
+  fakeModel(JSON.stringify({
+    photo_quality: "good", confidence: 0.9, notes: "",
+    items: [{ menu_id: "burger", components: [{ component: "lettuce", state: "unknown" }, { component: "bun", state: "present" }] }],
+  }));
+  const obs = await vision.analyze(Buffer.from("x"), "image/jpeg", order);
+  assert.equal(obs.retake, true);
+  assert.match(obs.retake_reason, /burger\.lettuce/);
+  assert.equal(evaluate(order.items, obs).verdict, "needs_review");
 });
 
 test("low confidence or bad photo -> all unknown -> needs_review (retake)", async () => {
