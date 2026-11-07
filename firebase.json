@@ -14,7 +14,7 @@
     {
       "source": "functions",
       "codebase": "default",
-      "ignore": ["node_modules", ".git", "test", "server.js", "*.log"]
+      "ignore": ["node_modules", ".git", "test", "scripts", "vision-testset", "server.js", "*.log", ".env.local", ".secret.local"]
     }
   ],
   "firestore": {
