@@ -1,0 +1,9 @@
+{
+  "name": "vision-lab",
+  "private": true,
+  "description": "Standalone test page for the FFC vision model: build an order, take a photo, see the verdict.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=22" }
+}

@@ -265,4 +265,4 @@ async function analyze(photoBuffer, contentType, order, { model, throwOnError = 
   return { ...result.obs, ...meta };
 }
 
-module.exports = { analyze, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT };
+module.exports = { analyze, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT, DEFAULT_MODEL };
