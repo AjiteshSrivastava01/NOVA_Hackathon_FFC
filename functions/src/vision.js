@@ -13,8 +13,10 @@
 //   OPENROUTER_VISION_MODEL  model id copied from openrouter.ai/models (image input)
 //   VISION_MIN_CONFIDENCE    below this the photo is flagged "please retake" (default 0.6)
 //
-// Bad photo / low confidence / model error -> every component comes back
-// "unknown", so the existing matching logic returns needs_review (retake).
+// The model answers every component with "present" or "absent" only.
+// Bad photo / low confidence / incomplete answer / model error -> we return a
+// "please retake" result instead (all components "unknown", which the existing
+// matching logic turns into needs_review). The model itself never says unknown.
 //
 // Reference photos: functions/vision-refs/<menu_id>/<caption>.jpg
 //   e.g. vision-refs/burger/no lettuce, with cheese.jpg
@@ -70,17 +72,17 @@ You report ONLY what is visible in the photo. You never judge whether the order 
 Rules:
 - Use only menu_id and component ids from the catalog. Never invent dishes.
 - One entry in "items" per physical unit (two burgers = two entries).
-- For each component of each item answer exactly one of:
-    "present"  - you can clearly see it
-    "absent"   - the area where it would be is clearly visible and it is not there
-    "unknown"  - it could be hidden (e.g. under a bun or another item) or the photo is unclear
-  If in doubt, use "unknown". Never guess "absent" for something that could be hidden.
+- For EVERY component listed for that dish in the catalog, answer exactly one of:
+    "present" - it is on the item
+    "absent"  - it is not on the item
+  If a component is partly hidden (e.g. under a bun), decide from the visible
+  evidence: edges or colour peeking out, the height of the stack, shadows.
 - photo_quality: "good", or "bad" if blurry, too dark, cropped, or the food is not visible.
 - confidence: 0-1, your overall confidence in the item list.
 - notes: one short sentence about anything unusual.
 Return JSON only, shaped like:
 {"photo_quality":"good","confidence":0.9,"notes":"...",
- "items":[{"menu_id":"burger","components":[{"component":"lettuce","state":"unknown"}]}]}`;
+ "items":[{"menu_id":"burger","components":[{"component":"lettuce","state":"absent"}]}]}`;
 
 const SCHEMA = {
   type: "object",
@@ -107,7 +109,7 @@ const SCHEMA = {
               required: ["component", "state"],
               properties: {
                 component: { type: "string" },
-                state: { type: "string", enum: ["present", "absent", "unknown"] },
+                state: { type: "string", enum: ["present", "absent"] },
               },
             },
           },
@@ -190,6 +192,7 @@ function parseJson(text) {
 /** Clean model output into the strict observation format matching.js expects. */
 function normalize(raw) {
   const minConf = +(process.env.VISION_MIN_CONFIDENCE || 0.6);
+  const missing = []; // components the model skipped or answered with something else
   const items = (raw.items || [])
     .filter((it) => MENU[it.menu_id]) // drop invented dishes
     .map((it) => {
@@ -200,18 +203,22 @@ function normalize(raw) {
       const components = {};
       for (const cid of Object.keys(MENU[it.menu_id].components)) {
         const v = given[cid];
-        components[cid] = ["present", "absent", "unknown"].includes(v) ? v : "unknown";
+        if (v === "present" || v === "absent") components[cid] = v;
+        else missing.push(`${it.menu_id}.${cid}`);
       }
       return { menu_id: it.menu_id, components };
     });
   const confidence = Math.max(0, Math.min(1, Number(raw.confidence) || 0));
-  const retake = raw.photo_quality === "bad" || confidence < minConf;
+  const retake = raw.photo_quality === "bad" || confidence < minConf || missing.length > 0;
   return {
     items,
     confidence,
     photo_quality: raw.photo_quality === "bad" ? "bad" : "good",
     retake,
-    retake_reason: retake ? (raw.photo_quality === "bad" ? "Photo unclear" : `Low confidence (${confidence.toFixed(2)})`) : null,
+    retake_reason: !retake ? null
+      : raw.photo_quality === "bad" ? "Photo unclear"
+      : confidence < minConf ? `Low confidence (${confidence.toFixed(2)})`
+      : `Model gave no clear answer for ${missing.join(", ")}`,
     notes: String(raw.notes || ""),
   };
 }
