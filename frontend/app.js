@@ -42,7 +42,7 @@ function speak(text) {
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const itemName = (id) => state.menu[id]?.name || id;
 const compName = (mid, cid) => state.menu[mid]?.components?.[cid]?.name || cid;
-const STATUS = { pending: "Awaiting inspection", verified: "Verified", needs_attention: "Needs attention", in_cubby: "In cubby", picked_up: "Picked up" };
+const STATUS = { pending: "Waiting", verified: "✓ Checked", needs_attention: "⚠ Check order", in_cubby: "✓ Ready", picked_up: "Picked up" };
 const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 function lineHtml(l) {
@@ -89,8 +89,11 @@ async function refresh() {
   if (snap === lastSnapshot) return; // nothing changed -> don't touch the DOM
   lastSnapshot = snap;
   state.orders = orders;
+  for (const o of orders) names.set(o.id, o.customer_name);
   renderOrders();
   renderDetail();
+  handleEvents(events);
+  renderAlerts(orders, events);
 
   $("#cubbies").innerHTML = cubbies.map((c) => c.order_id
     ? `<div class="cubby busy"><span class="ping"></span><b>${esc(c.label)}</b><span>#${c.order_id}</span><small>${esc(c.customer_name)}</small></div>`
@@ -165,7 +168,77 @@ function renderDetail() {
   }).join("") : `<li class="hint">No inspections yet. Run one above.</li>`;
 }
 
+// ---------- live events from the backend (input station, other screens, this one) ----------
+const names = new Map();         // order id -> customer name (kept after pickup)
+const handled = new Set();       // event ids already acted on
+let eventsPrimed = false;
+const eventKey = (e) => e.id || `${e.created_at}|${e.kind}|${e.order_id}`;
+function handleEvents(events) {
+  const fresh = events.filter((e) => !handled.has(eventKey(e))).reverse(); // oldest first
+  fresh.forEach((e) => handled.add(eventKey(e)));
+  if (!eventsPrimed) { eventsPrimed = true; return; } // don't replay history on page load
+  for (const e of fresh) {
+    const who = e.order_id ? `Order ${e.order_id}${names.get(e.order_id) ? ` for ${names.get(e.order_id)}` : ""}` : "";
+    const cubby = /C(\d+)/.exec(e.detail || "");
+    if (e.kind === "cubby_assigned" && cubby) {
+      queueRelease("C" + cubby[1], e.order_id, `${who} is ready in cubby ${cubby[1]}.`);
+    } else if (e.kind === "picked_up" && cubby) {
+      queueRelease("C" + cubby[1], e.order_id, `Enjoy your meal${names.get(e.order_id) ? ", " + names.get(e.order_id) : ""}! Cubby ${cubby[1]} is now free.`, true);
+    } else if (e.kind === "created" && e.detail === "voice") {
+      toast(`New voice order #${e.order_id}${names.get(e.order_id) ? " for " + names.get(e.order_id) : ""}`, true);
+    } else if (e.kind === "checked_off") {
+      toast(`Order #${e.order_id} checked ✓`, true);
+    } else if (e.level === "error" || e.level === "warning") {
+      toast(e.detail || e.kind);
+      if (e.level === "error") speak(`Attention. ${who} does not match the order.`);
+    }
+  }
+}
+
+// Alerts: orders currently wrong (until fixed) + recent warnings (until dismissed).
+const ALERT_KINDS = new Set(["possible_mixup", "retake", "no_match", "no_cubby"]);
+const dismissed = new Set((() => { try { return JSON.parse(localStorage.getItem("ffc-dismissed") || "[]"); } catch { return []; } })());
+function renderAlerts(orders, events) {
+  const wrong = orders.filter((o) => o.status === "needs_attention");
+  const recent = Date.now() - 15 * 60 * 1000;
+  const statusOf = new Map(orders.map((o) => [o.id, o.status]));
+  const resolved = (e) => e.order_id != null && ["in_cubby", "picked_up"].includes(statusOf.get(e.order_id) ?? "picked_up")
+    && e.kind !== "no_cubby" || (e.kind === "no_cubby" && statusOf.get(e.order_id) !== "verified");
+  const warnings = events.filter((e) => ALERT_KINDS.has(e.kind) && !dismissed.has(eventKey(e))
+    && Date.parse(e.created_at) > recent && !resolved(e));
+  $("#alerts").innerHTML = [
+    ...wrong.map((o) => `<div class="alert error" data-order="${o.id}"><b>⚠ Order #${o.id} (${esc(o.customer_name)}) is wrong</b>
+      <span>${esc((o.latest_inspection?.reasons || []).join("; "))}</span><em>Tap to open · fix the meal and check it again</em></div>`),
+    ...warnings.map((e) => `<div class="alert warning"><b>${{ possible_mixup: "⚠ Possible mix-up", retake: "📷 Retake photo", no_match: "❓ No matching order", no_cubby: "🚫 Cubbies full" }[e.kind]}</b>
+      <span>${esc(e.detail || "")}</span><button class="x" data-dismiss="${esc(eventKey(e))}" aria-label="Dismiss">✕</button></div>`),
+  ].join("");
+}
+$("#alerts").onclick = (ev) => {
+  const d = ev.target.closest("[data-dismiss]");
+  if (d) {
+    dismissed.add(d.dataset.dismiss);
+    try { localStorage.setItem("ffc-dismissed", JSON.stringify([...dismissed].slice(-200))); } catch {}
+    lastSnapshot = ""; run(refresh);
+    return;
+  }
+  const a = ev.target.closest("[data-order]");
+  if (a) select(+a.dataset.order);
+};
+
 // ---------- cubby simulation ----------
+const releaseQueue = [];
+let releaseTimer = null;
+function queueRelease(...args) {
+  releaseQueue.push(args);
+  if ($("#release").hidden) nextRelease();
+}
+function nextRelease() {
+  clearTimeout(releaseTimer);
+  const next = releaseQueue.shift();
+  if (!next) { $("#release").hidden = true; return; }
+  showRelease(...next);
+  releaseTimer = setTimeout(nextRelease, 6500); // hands-free: closes itself
+}
 function showRelease(cubbyLabel, orderId, text, pickup = false) {
   const r = $("#release");
   r.className = "release" + (pickup ? " pickup" : "");
@@ -178,7 +251,7 @@ function showRelease(cubbyLabel, orderId, text, pickup = false) {
   requestAnimationFrame(() => requestAnimationFrame(() => r.classList.add("open")));
   speak(text);
 }
-$("#release-close").onclick = () => { $("#release").hidden = true; };
+$("#release-close").onclick = () => nextRelease();
 
 // ---------- actions ----------
 async function select(id) { state.selectedId = id; $("#override").checked = false; lastSnapshot = ""; renderOrders(); renderDetail(); }
@@ -211,18 +284,17 @@ $("#d-inspections").onclick = (e) => {
 
 $("#override").onchange = () => { renderDetail(); if ($("#override").checked) $("#override-note").focus(); };
 
+// The cubby animation + announcement are triggered by events (handleEvents), so they
+// play the same whether the action came from this dashboard or the input station.
 $("#btn-assign").onclick = () => run(async () => {
   const override = $("#override").checked;
-  const o = await api(`/api/orders/${state.selectedId}/assign-cubby`, { json: { override, staff_note: $("#override-note").value || null } });
+  await api(`/api/orders/${state.selectedId}/assign-cubby`, { json: { override, staff_note: $("#override-note").value || null } });
   await refresh();
-  showRelease(o.cubby.label, o.id, `Order ${o.id} for ${o.customer_name} is ready in cubby ${o.cubby.label.replace("C", "")}.`);
 });
 
 $("#btn-pickup").onclick = () => run(async () => {
-  const before = state.orders.find((x) => x.id === state.selectedId);
-  const o = await api(`/api/orders/${state.selectedId}/pickup`, { method: "POST" });
+  await api(`/api/orders/${state.selectedId}/pickup`, { method: "POST" });
   await refresh();
-  showRelease("C" + before.cubby_id, o.id, `Enjoy your meal, ${o.customer_name}! Cubby ${before.cubby_id} is now free.`, true);
 });
 
 $("#btn-reset").onclick = () => confirm("Delete all orders and inspections?") && run(async () => {

@@ -7,6 +7,24 @@ A shared kitchen dashboard and backend in JavaScript, hosted on Firebase. The fu
 
 Later, voice replaces manual ticket entry and vision replaces the sample inspection.
 
+## How it works
+
+Two screens:
+
+| Screen | URL | Who uses it |
+|---|---|---|
+| **Input** | `/input/` (open it on a phone) | Staff. **🎙 Add order:** speak the order, check the card, tap Add. **📷 Check meal:** photograph the plate. |
+| **Dashboard** | `/` | Everyone. Shows tickets, cubbies and alerts, updating by itself. |
+
+What happens behind the scenes:
+- **Voice** → `POST /api/voice/understand`. The audio goes to OpenRouter (`gemini-3.8-flash`) and comes back as an order in menu format. After you confirm, it's saved with `POST /api/orders` and appears on the dashboard.
+- **Photo** → `POST /api/check-meal`. Vision lists what's on the plate, and plain code compares it with every open order:
+  - **Exact match:** the order is checked off ✓ and goes to a free cubby. The dashboard plays the cubby animation and announces it.
+  - **No exact match:** the closest order is flagged, and the dashboard shows a red alert with what's wrong until the meal is fixed and checked again.
+  - **Matches a newer order but is one ingredient off an older one:** the dashboard shows a "possible mix-up" warning.
+  - **Blurry photo, or nothing matches:** the dashboard shows a "retake" or "no matching order" warning.
+- Audio and photos are only processed. The dashboard shows the results.
+
 ## Run locally
 
 Needs Node.js 22.
@@ -23,7 +41,7 @@ npm install
 npm start
 ```
 
-Then open http://localhost:8000 for the dashboard and http://localhost:8000/vision-lab/ for Vision Lab. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
+Then open http://localhost:8000 for the dashboard and http://localhost:8000/input/ for the input screen. On a phone on the same Wi-Fi, use `http://<laptop-IP>:8000/input/`. Vision Lab, the testing page, is at `/vision-lab/`. Local data is kept in memory and resets when you restart the server. Run the tests with `npm test`.
 
 ## Firebase (project `nova-ffc`, free Spark plan)
 

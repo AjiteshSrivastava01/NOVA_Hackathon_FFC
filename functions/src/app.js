@@ -13,7 +13,7 @@ const { MENU, expectedComponents } = require("./menu");
 const matching = require("./matching");
 const vision = require("./vision");
 const voice = require("./voice");
-const { parseSummary, compareOrders } = require("./vision-string");
+const { parseSummary, compareOrders, toOrderItems, formatSummary } = require("./vision-string");
 
 const CUBBY_COUNT = +(process.env.FFC_CUBBIES || 8);
 const DONE = ["in_cubby", "picked_up"];
@@ -48,10 +48,43 @@ function createApp(store) {
     } catch (e) { next(e); }
   };
 
-  function logEvent(t, orderId, kind, detail = null) {
-    const created_at = now();
-    t.set("events", `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
-      { order_id: orderId, kind, detail, created_at });
+  // level: "info" | "success" | "warning" | "error". The dashboard turns warning/error
+  // events into alerts.
+  function logEvent(t, orderId, kind, detail = null, level = "info") {
+    const id = `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    t.set("events", id, { id, order_id: orderId, kind, detail, level, created_at: now() });
+  }
+
+  /** Order lines -> "2× Burger (no lettuce), Fries" */
+  function orderText(order) {
+    return formatSummary(order.items.map((l) => {
+      const dish = MENU[l.menu_id];
+      const notes = Object.entries(l.modifiers || {})
+        .map(([cid, a]) => `${a === "no" ? "no" : "add"} ${(dish?.components[cid]?.name || cid).toLowerCase()}`).join(", ");
+      return { name: dish?.name || l.menu_id, quantity: l.qty, notes: notes || undefined };
+    }));
+  }
+
+  /** Put an order in the first free cubby. Returns the cubby, or null if all are full. */
+  async function assignCubby(orderId, { override = false, staff_note = null, auto = false } = {}) {
+    return store.tx(async (t) => {
+      const order = await getOrder(t, orderId);
+      const cubbies = await t.list("cubbies");
+      if (DONE.includes(order.status)) throw new HttpError(409, `Order ${orderId} is already ${order.status}`);
+      if (order.status !== "verified" && !override) {
+        throw new HttpError(409, "Order is not verified. Re-inspect, or pass override=true with a staff note.");
+      }
+      const free = cubbies.filter((c) => c.order_id == null).sort((a, b) => a.id - b.id)[0];
+      if (!free) {
+        if (auto) { logEvent(t, orderId, "no_cubby", `Order #${orderId} is checked but all cubbies are full`, "warning"); return null; }
+        throw new HttpError(409, "No free cubbies");
+      }
+      t.update("cubbies", free.id, { order_id: orderId });
+      t.update("orders", orderId, { status: "in_cubby", cubby_id: free.id });
+      logEvent(t, orderId, "cubby_assigned",
+        `cubby ${free.label}` + (override ? ` (STAFF OVERRIDE: ${staff_note || "no note"})` : ""), "success");
+      return { ...free, order_id: orderId };
+    });
   }
 
   async function getOrder(t, id) {
@@ -255,21 +288,7 @@ function createApp(store) {
   app.post("/api/orders/:id/assign-cubby", route(async (req) => {
     const orderId = id(req);
     const { override = false, staff_note = null } = req.body || {};
-    const cubby = await store.tx(async (t) => {
-      const order = await getOrder(t, orderId);
-      const cubbies = await t.list("cubbies");
-      if (DONE.includes(order.status)) throw new HttpError(409, `Order ${orderId} is already ${order.status}`);
-      if (order.status !== "verified" && !override) {
-        throw new HttpError(409, "Order is not verified. Re-inspect, or pass override=true with a staff note.");
-      }
-      const free = cubbies.filter((c) => c.order_id == null).sort((a, b) => a.id - b.id)[0];
-      if (!free) throw new HttpError(409, "No free cubbies");
-      t.update("cubbies", free.id, { order_id: orderId });
-      t.update("orders", orderId, { status: "in_cubby", cubby_id: free.id });
-      logEvent(t, orderId, "cubby_assigned",
-        `cubby ${free.label}` + (override ? ` (STAFF OVERRIDE: ${staff_note || "no note"})` : ""));
-      return { ...free, order_id: orderId };
-    });
+    const cubby = await assignCubby(orderId, { override, staff_note });
     return { ...(await fullOrder(orderId)), cubby };
   }));
 
@@ -280,7 +299,7 @@ function createApp(store) {
       if (order.status !== "in_cubby") throw new HttpError(409, `Order ${orderId} is ${order.status}, not in a cubby`);
       t.update("cubbies", order.cubby_id, { order_id: null });
       t.update("orders", orderId, { status: "picked_up", picked_up_at: now() });
-      logEvent(t, orderId, "picked_up", `cubby C${order.cubby_id}`);
+      logEvent(t, orderId, "picked_up", `cubby C${order.cubby_id}`, "success");
     });
     return fullOrder(orderId);
   }));
@@ -321,6 +340,105 @@ function createApp(store) {
     return {
       bytes: buffer.length, transcript,
       note: transcript ? null : "Speech-to-text not wired yet (functions/src/voice.js). Audio was received OK.",
+    };
+  }));
+
+  // ---------- input station: voice -> order, camera -> check an order off ----------
+
+  // Body: { audio_base64: "data:audio/wav;base64,..." } or { text: "two burgers no lettuce for Sam" }
+  // -> { transcript, customer_name, items (menu format), summary }   (nothing is saved yet:
+  //    the station shows it, and on "Add" posts it to POST /api/orders with source "voice")
+  app.post("/api/voice/understand", route(async (req) => {
+    const b = req.body || {};
+    let audio = null, audioFormat = "wav";
+    if (b.audio_base64) {
+      const m = /^data:([^;]+);base64,(.*)$/s.exec(b.audio_base64);
+      audio = Buffer.from(m ? m[2] : b.audio_base64, "base64");
+      if (m && /mp3|mpeg/.test(m[1])) audioFormat = "mp3";
+      if (audio.length < 1000) throw new HttpError(422, "No audio was recorded. Try again and speak clearly.");
+    } else if (!b.text || !String(b.text).trim()) {
+      throw new HttpError(422, "Send audio_base64 or text");
+    }
+    let r;
+    try {
+      r = await voice.understandOrder({ audio, audioFormat, text: b.text ? String(b.text) : undefined });
+    } catch (e) {
+      throw new HttpError(502, e.message);
+    }
+    if (!r.items.length) {
+      throw new HttpError(422, `I heard "${r.transcript || "nothing"}" but no menu items. Try again.`);
+    }
+    return { ...r, summary: orderText({ items: r.items }) };
+  }));
+
+  // Body: { photo: "data:image/jpeg;base64,...", order_id? }
+  // Finds which open order the meal is (or uses order_id), then:
+  //   matches exactly  -> inspection pass, order goes to a free cubby ("checked off")
+  //   doesn't match    -> closest order is flagged with the differences (dashboard alert)
+  //   also: "possible mix-up" warning when it matches a newer order but is one change
+  //   away from an older one (kitchens usually cook in order)
+  app.post("/api/check-meal", route(async (req) => {
+    const b = req.body || {};
+    const raw = b.photo || b.photo_base64;
+    if (!raw) throw new HttpError(422, "Send a photo as a data URL");
+    const photo = decodeBase64(raw);
+    const observations = await vision.analyze(photo.buffer, photo.contentType, null);
+    if (!observations) throw new HttpError(501, "Vision needs OPENROUTER_API_KEY (functions/vision.local.env).");
+    const seen = formatSummary(toOrderItems(observations));
+    const log = (orderId, kind, detail, level) => store.tx(async (t) => logEvent(t, orderId, kind, detail, level));
+
+    if (observations.retake || !observations.items.length) {
+      const why = observations.retake_reason || "nothing from the menu in the photo";
+      await log(null, "retake", `Photo unclear (${why}). Please retake.`, "warning");
+      return { outcome: "retake", message: `Please retake the photo: ${why}.`, seen };
+    }
+
+    const open = (await store.list("orders", { orderBy: "id" }))
+      .filter((o) => (b.order_id != null ? o.id === Number(b.order_id) : ["pending", "needs_attention"].includes(o.status)));
+    if (b.order_id != null && !open.length) throw new HttpError(409, `Order #${b.order_id} isn't waiting for a check`);
+    const seenDishes = new Set(observations.items.map((i) => i.menu_id));
+    const scored = open.map((o) => {
+      const r = matching.evaluate(o.items, observations);
+      const overlap = o.items.some((l) => seenDishes.has(l.menu_id));
+      return { o, r, overlap, score: r.verdict === matching.PASS ? 0 : r.reasons.length };
+    });
+    const candidates = b.order_id != null ? scored : scored.filter((x) => x.overlap);
+    if (!candidates.length) {
+      await log(null, "no_match", `Camera saw "${seen}" but no open order has that.`, "warning");
+      return { outcome: "no_match", message: `No open order matches "${seen}".`, seen };
+    }
+
+    const photoPath = await savePhoto(photo);
+    const exact = candidates.filter((x) => x.r.verdict === matching.PASS).sort((a, b2) => a.o.id - b2.o.id)[0];
+    if (exact) {
+      const o = exact.o;
+      await recordInspection(o.id, observations, "camera", photoPath);
+      // one ingredient off (not a different count) on an OLDER ticket -> likely the cook swapped them
+      const mixup = candidates.find((x) => x.o.id < o.id && x.r.verdict === matching.FAIL
+        && x.r.reasons.length === 1 && !/expected \d+, saw \d+/.test(x.r.reasons[0]));
+      if (mixup) {
+        await log(mixup.o.id, "possible_mixup",
+          `Meal matched Order #${o.id}, but older Order #${mixup.o.id} (${mixup.o.customer_name}) differs only by: ${mixup.r.reasons[0]}. Check #${mixup.o.id} was made right.`,
+          "warning");
+      }
+      await log(o.id, "checked_off", `Order #${o.id} (${o.customer_name}) checked: ${seen}`, "success");
+      const cubby = await assignCubby(o.id, { auto: true });
+      return {
+        outcome: "checked_off", order_id: o.id, customer_name: o.customer_name, seen, cubby,
+        message: `✓ Order #${o.id} (${o.customer_name}) is correct` + (cubby ? ` → cubby ${cubby.label}` : " (no free cubby)"),
+        warning: mixup ? `Possible mix-up with older Order #${mixup.o.id}` : null,
+      };
+    }
+
+    const best = candidates.sort((a, b2) => a.score - b2.score || a.o.id - b2.o.id)[0];
+    const insp = await recordInspection(best.o.id, observations, "camera", photoPath);
+    await log(best.o.id, "check_failed",
+      `Order #${best.o.id} (${best.o.customer_name}) is wrong: ${insp.reasons.join("; ")}. Ordered: ${orderText(best.o)}. Camera saw: ${seen}.`,
+      "error");
+    return {
+      outcome: "flagged", order_id: best.o.id, customer_name: best.o.customer_name, seen,
+      reasons: insp.reasons, swap_suggestion: insp.swap_suggestion,
+      message: `✕ Order #${best.o.id} (${best.o.customer_name}) doesn't match: ${insp.reasons.join("; ")}`,
     };
   }));
 
