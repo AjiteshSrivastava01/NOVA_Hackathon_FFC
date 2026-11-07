@@ -18,11 +18,13 @@ async function api(path, opts = {}) {
 
 function toast(msg, ok = false) {
   const t = $("#toast");
-  t.textContent = msg;
+  t.textContent = (ok ? "✓ " : "⚠ ") + msg;
   t.className = "toast" + (ok ? " ok" : "");
   t.hidden = false;
+  void t.offsetWidth; // restart the enter animation
+  t.classList.add("show");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => (t.hidden = true), 3500);
+  toast._t = setTimeout(() => { t.classList.remove("show"); setTimeout(() => (t.hidden = true), 300); }, 3500);
 }
 
 async function run(fn) {
@@ -50,38 +52,87 @@ function lineHtml(l) {
 }
 const orderSummary = (o) => o.items.map((l) => `${l.qty}× ${itemName(l.menu_id)}${Object.keys(l.modifiers || {}).length ? "*" : ""}`).join(", ");
 
+// ---------- animation helpers ----------
+// Items animate in only the first time we see them, so the 4s auto-refresh never replays animations.
+const seen = { orders: new Set(), insp: new Set(), events: new Set() };
+let firstPaint = true;
+function enter(kind, key, i) {
+  if (seen[kind].has(key)) return { cls: "", style: "" };
+  seen[kind].add(key);
+  return { cls: " enter", style: ` style="--i:${firstPaint ? Math.min(i, 12) : 0}"` };
+}
+
+// Number ticker: counts from the old value to the new one.
+function tick(el, to) {
+  const from = +el.dataset.v || 0;
+  el.dataset.v = to;
+  if (from === to) { el.textContent = to; return; }
+  el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+  const t0 = performance.now(), dur = 600;
+  const step = (now) => {
+    const p = Math.min((now - t0) / dur, 1);
+    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 // ---------- render ----------
+let lastSnapshot = "";
 async function refresh() {
   const [orders, cubbies, events] = await Promise.all([
     api(`/api/orders?include_done=${$("#show-done").checked}`),
     api("/api/cubbies"),
     api("/api/events"),
   ]);
+  const snap = JSON.stringify([orders, cubbies, events, state.selectedId]);
+  if (snap === lastSnapshot) return; // nothing changed -> don't touch the DOM
+  lastSnapshot = snap;
   state.orders = orders;
   renderOrders();
   renderDetail();
+
   $("#cubbies").innerHTML = cubbies.map((c) => c.order_id
-    ? `<div class="cubby busy"><b>${esc(c.label)}</b>#${c.order_id}<br>${esc(c.customer_name)}</div>`
-    : `<div class="cubby"><b>${esc(c.label)}</b>free</div>`).join("");
-  $("#events").innerHTML = events.map((e) =>
-    `<li><span class="meta">${time(e.created_at)}</span>${e.order_id ? `#${e.order_id} ` : ""}${esc(e.kind.replace(/_/g, " "))}${e.detail ? ` — ${esc(e.detail)}` : ""}</li>`).join("");
+    ? `<div class="cubby busy"><span class="ping"></span><b>${esc(c.label)}</b><span>#${c.order_id}</span><small>${esc(c.customer_name)}</small></div>`
+    : `<div class="cubby"><b>${esc(c.label)}</b><small>free</small></div>`).join("");
+
+  $("#events").innerHTML = events.map((e, i) => {
+    const a = enter("events", e.created_at + e.kind + e.order_id, i);
+    return `<li class="ev ${esc(e.kind)}${a.cls}"${a.style}><span class="meta">${time(e.created_at)}</span><span>${e.order_id ? `<b>#${e.order_id}</b> ` : ""}${esc(e.kind.replace(/_/g, " "))}${e.detail ? ` — ${esc(e.detail)}` : ""}</span></li>`;
+  }).join("");
+
+  const open = orders.filter((o) => o.status !== "picked_up");
+  tick($("#stat-open"), open.length);
+  tick($("#stat-attn"), open.filter((o) => o.status === "needs_attention").length);
+  tick($("#stat-cubby"), open.filter((o) => o.status === "in_cubby").length);
+  tick($("#stat-free"), cubbies.filter((c) => !c.order_id).length);
+  firstPaint = false;
 }
 
 function renderOrders() {
   const ul = $("#orders");
-  if (!state.orders.length) { ul.innerHTML = `<li class="empty">No open tickets. Create a demo order.</li>`; return; }
-  ul.innerHTML = state.orders.map((o) => `
-    <li data-id="${o.id}" data-status="${o.status}" class="${o.id === state.selectedId ? "selected" : ""}">
+  if (!state.orders.length) { ul.innerHTML = `<li class="empty">No open tickets yet.<br>Hit <b>Create demo order</b> to start.</li>`; return; }
+  ul.innerHTML = state.orders.map((o, i) => {
+    const a = enter("orders", o.id, i);
+    return `
+    <li data-id="${o.id}" data-status="${o.status}" class="ticket-card${o.id === state.selectedId ? " selected" : ""}${a.cls}"${a.style}>
       <div class="row"><b>#${o.id} · ${esc(o.customer_name)}</b><span class="status ${o.status}">${STATUS[o.status]}${o.cubby_id && o.status === "in_cubby" ? " C" + o.cubby_id : ""}</span></div>
       <div class="summary">${esc(orderSummary(o))} · ${esc(o.source)}</div>
-    </li>`).join("");
+    </li>`;
+  }).join("");
 }
 
+let lastDetailId = null;
 function renderDetail() {
   const o = state.orders.find((x) => x.id === state.selectedId);
   $("#detail").hidden = !o;
   $("#detail-empty").hidden = !!o;
-  if (!o) return;
+  if (!o) { lastDetailId = null; return; }
+  if (lastDetailId !== o.id) { // switching tickets: slide the panel in
+    const d = $("#detail");
+    d.classList.remove("swap-in"); void d.offsetWidth; d.classList.add("swap-in");
+    lastDetailId = o.id;
+  }
   $("#d-title").textContent = `#${o.id} · ${o.customer_name}`;
   const st = $("#d-status");
   st.className = "status " + o.status;
@@ -96,19 +147,22 @@ function renderDetail() {
   $("#btn-assign").disabled = done || (needsOverride && !$("#override").checked);
   $("#btn-pickup").disabled = o.status !== "in_cubby";
 
-  $("#d-inspections").innerHTML = o.inspections.length ? o.inspections.map((i, idx) => `
-    <li class="${idx ? "old" : ""}">
+  $("#d-inspections").innerHTML = o.inspections.length ? o.inspections.map((i, idx) => {
+    const a = enter("insp", i.id, 0);
+    return `
+    <li class="insp ${i.verdict}${idx ? " old" : ""}${a.cls}">
       ${i.photo_path ? `<a href="${i.photo_path}" target="_blank"><img src="${i.photo_path}" alt="meal photo"></a>` : ""}
       <div>
-        <span class="verdict ${i.verdict}">${i.verdict.replace("_", " ")}</span>
+        <span class="verdict ${i.verdict}">${{ pass: "✓ pass", fail: "✕ fail", needs_review: "? needs review" }[i.verdict]}</span>
         <span class="meta">#${i.id} · ${esc(i.source)} · ${time(i.created_at)}${i.reassigned_from ? ` · moved from inspection #${i.reassigned_from}` : ""}</span>
         <ul>${i.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
         ${i.swap_suggestion && idx === 0 ? `
           <div class="swap">⚠ ${esc(i.swap_suggestion.message)}
-            <div class="btn-row"><button data-reassign="${i.id}" data-target="${i.swap_suggestion.order_id}">Confirm: this meal is for #${i.swap_suggestion.order_id}</button></div>
+            <div class="btn-row"><button class="btn" data-reassign="${i.id}" data-target="${i.swap_suggestion.order_id}">Confirm: this meal is for #${i.swap_suggestion.order_id}</button></div>
           </div>` : ""}
       </div>
-    </li>`).join("") : `<li class="hint">No inspections yet.</li>`;
+    </li>`;
+  }).join("") : `<li class="hint">No inspections yet. Run one above.</li>`;
 }
 
 // ---------- cubby simulation ----------
@@ -118,6 +172,8 @@ function showRelease(cubbyLabel, orderId, text, pickup = false) {
   $("#door-label").textContent = cubbyLabel;
   $("#bag-label").textContent = "#" + orderId;
   $("#release-text").textContent = text;
+  $("#sparks").innerHTML = Array.from({ length: 14 }, (_, k) =>
+    `<i style="--a:${(360 / 14) * k}deg;--d:${70 + (k % 3) * 25}px;--c:${["var(--coral)", "var(--strawberry)", "var(--apricot)"][k % 3]}"></i>`).join("");
   r.hidden = false;
   requestAnimationFrame(() => requestAnimationFrame(() => r.classList.add("open")));
   speak(text);
@@ -125,7 +181,7 @@ function showRelease(cubbyLabel, orderId, text, pickup = false) {
 $("#release-close").onclick = () => { $("#release").hidden = true; };
 
 // ---------- actions ----------
-async function select(id) { state.selectedId = id; $("#override").checked = false; renderOrders(); renderDetail(); }
+async function select(id) { state.selectedId = id; $("#override").checked = false; lastSnapshot = ""; renderOrders(); renderDetail(); }
 
 $("#orders").onclick = (e) => { const li = e.target.closest("li[data-id]"); if (li) select(+li.dataset.id); };
 $("#show-done").onchange = () => run(refresh);
@@ -153,7 +209,7 @@ $("#d-inspections").onclick = (e) => {
   });
 };
 
-$("#override").onchange = renderDetail;
+$("#override").onchange = () => { renderDetail(); if ($("#override").checked) $("#override-note").focus(); };
 
 $("#btn-assign").onclick = () => run(async () => {
   const override = $("#override").checked;
@@ -182,7 +238,7 @@ function addLine(line = { menu_id: "burger", qty: 1, modifiers: {} }) {
   div.innerHTML = `
     <select class="menu">${Object.entries(state.menu).map(([id, m]) => `<option value="${id}" ${id === line.menu_id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
     <input class="qty" type="number" min="1" max="20" value="${line.qty}">
-    <button type="button" class="ghost rm">✕</button>
+    <button type="button" class="btn icon rm" aria-label="Remove item">✕</button>
     <div class="mods"></div>`;
   const renderMods = (mods = {}) => {
     const comps = state.menu[div.querySelector(".menu").value].components;

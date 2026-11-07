@@ -4,35 +4,56 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FFC Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header>
-    <h1>FFC Kitchen <span class="sub">order → inspect → cubby → pickup</span></h1>
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🍔</span>
+      <h1>FFC Kitchen</h1>
+      <span class="live"><span class="dot"></span>LIVE</span>
+    </div>
+    <div class="flow" aria-label="Flow">
+      <span>Order</span><i>→</i><span>Inspect</span><i>→</i><span>Cubby</span><i>→</i><span>Pickup</span>
+    </div>
     <div class="header-actions">
-      <label class="toggle"><input type="checkbox" id="tts-on" checked> Voice announcements</label>
-      <button class="ghost" id="btn-reset">Reset demo</button>
+      <label class="switch"><input type="checkbox" id="tts-on" checked><span class="track"></span>Voice</label>
+      <button class="btn ghost-dark" id="btn-reset">Reset demo</button>
     </div>
   </header>
+
+  <section class="stats">
+    <div class="stat"><span class="num" id="stat-open">0</span><span class="lbl">Open tickets</span></div>
+    <div class="stat attn"><span class="num" id="stat-attn">0</span><span class="lbl">Need attention</span></div>
+    <div class="stat incubby"><span class="num" id="stat-cubby">0</span><span class="lbl">In cubbies</span></div>
+    <div class="stat free"><span class="num" id="stat-free">0</span><span class="lbl">Free cubbies</span></div>
+  </section>
 
   <main>
     <!-- ORDER QUEUE -->
     <section class="panel" id="queue-panel">
       <div class="panel-head">
         <h2>Tickets</h2>
-        <label class="toggle small"><input type="checkbox" id="show-done"> show picked up</label>
+        <label class="switch small"><input type="checkbox" id="show-done"><span class="track"></span>Picked up</label>
       </div>
       <div class="btn-row">
-        <button class="primary" id="btn-demo">+ Create demo order</button>
-        <button id="btn-new">+ Manual order</button>
-        <button id="btn-voice">🎙 Voice order</button>
+        <button class="btn shimmer accent" id="btn-demo"><span>+ Create demo order</span></button>
+        <button class="btn" id="btn-new">+ Manual</button>
+        <button class="btn" id="btn-voice">🎙 Voice</button>
       </div>
       <ul id="orders" class="orders"></ul>
     </section>
 
     <!-- SELECTED ORDER -->
     <section class="panel" id="detail-panel">
-      <div id="detail-empty" class="empty">Select a ticket to inspect it.<br><small>The ticket is chosen <em>before</em> the meal photo, so the meal is checked against the order the cook intended.</small></div>
+      <div id="detail-empty" class="empty">
+        <div class="empty-icon" aria-hidden="true">🧾</div>
+        <b>Select a ticket to inspect it.</b>
+        <small>The ticket is chosen <em>before</em> the meal photo, so the meal is checked against the order the cook intended.</small>
+      </div>
       <div id="detail" hidden>
         <div class="panel-head">
           <h2 id="d-title"></h2>
@@ -40,23 +61,23 @@
         </div>
         <ul id="d-items" class="ticket"></ul>
 
-        <h3>1 · Inspect the meal</h3>
+        <h3><span class="step">1</span> Inspect the meal</h3>
         <div class="btn-row">
-          <button class="primary" data-sample="correct">Submit sample inspection ✓</button>
-          <button data-sample="mistake">Sample: cook mistake</button>
-          <button data-sample="hidden">Sample: lettuce hidden</button>
-          <button id="btn-photo">📷 Photo inspection</button>
+          <button class="btn shimmer primary" data-sample="correct"><span>Submit sample inspection ✓</span></button>
+          <button class="btn" data-sample="mistake">Sample: cook mistake</button>
+          <button class="btn" data-sample="hidden">Sample: lettuce hidden</button>
+          <button class="btn" id="btn-photo">📷 Photo inspection</button>
         </div>
 
-        <h3>2 · Cubby</h3>
+        <h3><span class="step">2</span> Cubby</h3>
         <div class="btn-row">
-          <button class="primary" id="btn-assign">Assign cubby</button>
-          <label class="toggle small" id="override-wrap"><input type="checkbox" id="override"> staff override</label>
-          <input id="override-note" placeholder="override reason" hidden>
-          <button class="primary" id="btn-pickup">Confirm pickup</button>
+          <button class="btn shimmer primary" id="btn-assign"><span>Assign cubby</span></button>
+          <label class="switch small" id="override-wrap"><input type="checkbox" id="override"><span class="track"></span>Staff override</label>
+          <input id="override-note" placeholder="Override reason" hidden>
+          <button class="btn shimmer accent" id="btn-pickup"><span>Confirm pickup</span></button>
         </div>
 
-        <h3>Inspection history <small>(retakes are kept)</small></h3>
+        <h3><span class="step">↺</span> Inspection history <small>retakes are kept</small></h3>
         <ol id="d-inspections" class="inspections"></ol>
       </div>
     </section>
@@ -68,11 +89,11 @@
       <h2>Activity</h2>
       <ul id="events" class="events"></ul>
       <details class="lab">
-        <summary>Test lab (mic · camera · speech)</summary>
+        <summary>Test lab · mic · camera · speech</summary>
         <div class="btn-row">
-          <button id="lab-mic">🎙 Record 3s</button>
-          <button id="lab-cam">📷 Test camera</button>
-          <button id="lab-tts">🔊 Test speech</button>
+          <button class="btn" id="lab-mic">🎙 Record 3s</button>
+          <button class="btn" id="lab-cam">📷 Camera</button>
+          <button class="btn" id="lab-tts">🔊 Speech</button>
         </div>
         <audio id="lab-audio" controls hidden></audio>
         <pre id="lab-out"></pre>
@@ -86,10 +107,10 @@
       <h2 id="order-form-title">New order</h2>
       <label>Customer name <input name="customer" required maxlength="60"></label>
       <div id="order-lines"></div>
-      <button type="button" id="add-line">+ Add item</button>
+      <button type="button" class="btn" id="add-line">+ Add item</button>
       <div class="btn-row end">
-        <button value="cancel" formnovalidate>Cancel</button>
-        <button class="primary" value="ok" id="order-save">Save order</button>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn shimmer primary" value="ok" id="order-save"><span>Save order</span></button>
       </div>
     </form>
   </dialog>
@@ -100,13 +121,13 @@
       <h2>Voice order</h2>
       <p class="hint">Record, or type what the customer said. The parsed order opens for staff confirmation before it is saved.</p>
       <div class="btn-row">
-        <button type="button" id="voice-rec">● Record</button>
+        <button type="button" class="btn" id="voice-rec">● Record</button>
         <span id="voice-state" class="hint"></span>
       </div>
       <textarea id="voice-text" rows="3" placeholder="e.g. Two burgers no lettuce and fries for Sam"></textarea>
       <div class="btn-row end">
-        <button value="cancel">Cancel</button>
-        <button type="button" class="primary" id="voice-parse">Parse → confirm</button>
+        <button class="btn" value="cancel">Cancel</button>
+        <button type="button" class="btn shimmer primary" id="voice-parse"><span>Parse → confirm</span></button>
       </div>
     </form>
   </dialog>
@@ -126,9 +147,9 @@
       </p>
       <input type="file" id="cam-file" accept="image/*" capture="environment">
       <div class="btn-row end">
-        <button value="cancel">Cancel</button>
-        <button type="button" id="cam-snap">Capture</button>
-        <button type="button" class="primary" id="cam-send" disabled>Inspect</button>
+        <button class="btn" value="cancel">Cancel</button>
+        <button type="button" class="btn" id="cam-snap">Capture</button>
+        <button type="button" class="btn shimmer primary" id="cam-send" disabled><span>Inspect</span></button>
       </div>
     </form>
   </dialog>
@@ -137,21 +158,23 @@
   <div id="release" class="release" hidden>
     <div class="release-card">
       <div class="cubby-3d">
+        <span class="ring"></span><span class="ring r2"></span>
+        <div id="sparks" class="sparks"></div>
         <div class="cubby-inside">
           <svg viewBox="0 0 120 120" class="bag" aria-hidden="true">
-            <path d="M25 40 h70 l-6 70 h-58 z" fill="#fee1c7" stroke="#3c1518" stroke-width="3"/>
-            <path d="M42 40 v-10 a18 18 0 0 1 36 0 v10" fill="none" stroke="#3c1518" stroke-width="4"/>
+            <path d="M25 40 h70 l-6 70 h-58 z" fill="#fee1c7" stroke="#230a0c" stroke-width="3"/>
+            <path d="M42 40 v-10 a18 18 0 0 1 36 0 v10" fill="none" stroke="#230a0c" stroke-width="4"/>
             <text x="60" y="85" text-anchor="middle" font-size="18" font-weight="700" fill="#69140e" id="bag-label">#</text>
           </svg>
         </div>
         <div class="cubby-door"><span id="door-label">C1</span></div>
       </div>
       <p id="release-text" class="release-text"></p>
-      <button class="primary" id="release-close">Done</button>
+      <button class="btn shimmer accent" id="release-close"><span>Done</span></button>
     </div>
   </div>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" hidden role="status"></div>
   <script src="/app.js"></script>
 </body>
 </html>
