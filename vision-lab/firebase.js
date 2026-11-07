@@ -34,10 +34,10 @@
 
 const crypto = require("node:crypto");
 
-// FIREBASE TODO: fill these in (or set the env vars).
+// Project: nova-ffc. FIREBASE TODO: confirm the bucket name once Storage is enabled.
 const FIREBASE_CONFIG = {
-  projectId: process.env.FIREBASE_PROJECT_ID || "YOUR-FIREBASE-PROJECT-ID",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "YOUR-FIREBASE-PROJECT-ID.firebasestorage.app",
+  projectId: process.env.FIREBASE_PROJECT_ID || "nova-ffc",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "nova-ffc.firebasestorage.app", // FIREBASE TODO: confirm in console → Storage
   resultsCollection: "vision_results",
   photosFolder: "vision-photos",
 };
