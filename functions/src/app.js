@@ -363,6 +363,7 @@ function createApp(store) {
     try {
       r = await voice.understandOrder({ audio, audioFormat, text: b.text ? String(b.text) : undefined });
     } catch (e) {
+      console.error("voice/understand failed:", e.message);
       throw new HttpError(502, e.message);
     }
     if (!r.items.length) {

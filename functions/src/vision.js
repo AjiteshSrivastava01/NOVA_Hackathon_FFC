@@ -149,8 +149,9 @@ async function callModel(messages, model, opts = {}) {
   try {
     return await callModelOnce(messages, model, { ...opts, structured: true });
   } catch (e) {
-    // Not every model supports strict JSON schema; retry once relying on the prompt alone.
-    if (!/response_format|json_schema|structured/i.test(e.message)) throw e;
+    // Some providers (e.g. Gemini) reject parts of strict JSON schema with a 400.
+    // Retry once relying on the prompt alone. Auth / credit / rate-limit errors are not retried.
+    if (!retryableWithoutSchema(e)) throw e;
     return callModelOnce(messages, model, { ...opts, structured: false });
   }
 }
@@ -176,14 +177,25 @@ async function callModelOnce(messages, model, { timeoutMs = 30000, structured = 
         usage: { include: true }, // OpenRouter returns cost in usage.cost
       }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${data.error?.message || JSON.stringify(data)}`);
-    const text = data.choices?.[0]?.message?.content || "";
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw openRouterError(res.status, data);
+    let text = data.choices?.[0]?.message?.content || "";
+    if (Array.isArray(text)) text = text.map((p) => p.text ?? "").join("");
     return { text, latencyMs: Date.now() - t0, cost: data.usage?.cost ?? null };
   } finally {
     clearTimeout(timer);
   }
 }
+
+function openRouterError(status, data) {
+  const raw = data.error?.metadata?.raw;
+  const detail = [data.error?.message, typeof raw === "string" ? raw.slice(0, 300) : raw && JSON.stringify(raw).slice(0, 300)]
+    .filter(Boolean).join(" | ") || JSON.stringify(data).slice(0, 300);
+  return Object.assign(new Error(`OpenRouter ${status}: ${detail}`), { status });
+}
+const retryableWithoutSchema = (e) =>
+  /response_format|json_schema|structured|schema|additionalProperties|INVALID_ARGUMENT/i.test(e.message)
+  || (e.status >= 400 && e.status < 500 && ![401, 402, 403, 429].includes(e.status));
 
 function parseJson(text) {
   // Some models wrap JSON in ```json fences or add prose; grab the outermost object.
@@ -293,4 +305,4 @@ async function describePhoto(photoBuffer, contentType, { model, throwOnError = f
   };
 }
 
-module.exports = { analyze, describePhoto, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT, DEFAULT_MODEL };
+module.exports = { openRouterError, retryableWithoutSchema, analyze, describePhoto, buildMessages, callModel, normalize, parseJson, SYSTEM_PROMPT, DEFAULT_MODEL };

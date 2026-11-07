@@ -113,6 +113,7 @@ async function understand(body) {
     $("#c-what").textContent = draft.summary;
     $("#c-heard").textContent = draft.transcript ? `Heard: “${draft.transcript}”` : "";
     $("#confirm").hidden = false;
+    if (draft.ai_error) note("warning", "AI unavailable, used the simple parser. Check the card.", draft.ai_error);
   } catch (e) { note("error", "Couldn't take that order", e.message); }
   finally { busy(mic, false, "🎙 Add order"); mic.classList.remove("rec"); }
 }
