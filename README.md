@@ -99,6 +99,7 @@ Other routes: `GET /api/menu`, `GET /api/orders/:id`, `POST /api/orders/demo`,
 | Voice | `functions/src/voice.js` → `transcribe(audio)`, `parseOrder(text)` |
 | Logic | `functions/src/matching.js` |
 | UI | `frontend/` (plain HTML/CSS/JS, no build step) |
+| Display board + camera (P4) | `display-board/` (Next.js on :3001, uses this API; see `display-board/README.md`) |
 
 ## Palette
 
